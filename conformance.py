@@ -9,29 +9,41 @@ from typing import List, Optional, Dict, Set, Callable
 
 from signature import streams_to_sigs, transform_stream
 
-
 def pairwise_kernel_gram(X:List, 
                          Y:List, 
-                         kernel:Callable, 
+                         pairwise_kernel:Callable, 
                          sym:bool = False, 
                          n_jobs:int = 1, 
-                         disable_tqdm:bool = False,):
+                         disable_tqdm:bool = False,
+                         ) -> np.ndarray:
     """Calculates the kernel Gram matrix k(X_i, Y_j) of two collections X and Y
-    using joblib.Parallel for parallelization."""
+    using joblib.Parallel for parallelization.
+
+    Args:
+        X (List): List of elements
+        Y (List): List of elements
+        pairwise_kernel (Callable): Takes in two elements and outputs a value.
+        sym (bool): If true, make Gram matrix symmetric.
+        n_jobs (int): Number of parallel jobs to run.
+        disable_tqdm (bool): Whether to disable the tqdm progress bar.
+    """
     #Create indices to loop over
     N, M = len(X), len(Y)
     if sym:
+        if X is not Y:
+            raise ValueError("If sym=True, X and Y must be the same list.")
         indices = np.stack(np.triu_indices(N)).T #triangular pairs
     else:
         indices = np.stack(np.meshgrid(np.arange(N), np.arange(M))).T.reshape(-1,2)
 
     #Calculate kernel Gram matrix
     inner_products = Parallel(n_jobs=n_jobs)(
-        delayed(kernel)(X[i], Y[j]) 
+        delayed(pairwise_kernel)(X[i], Y[j]) 
         for i,j in tqdm(indices, disable = disable_tqdm, desc="Kernel Gram Matrix"))
 
     #Populate matrix
-    inner_prod_Gram_matrix = np.zeros((N,M), dtype=np.float64)
+    inner_prod_Gram_matrix = np.zeros((N,M, *inner_products[0].shape), 
+                                      dtype=np.float64)
     for (i,j), val in zip(indices, inner_products):
         inner_prod_Gram_matrix[i,j] = val
         if sym:
