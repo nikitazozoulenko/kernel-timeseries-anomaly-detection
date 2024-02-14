@@ -68,95 +68,125 @@ def stream_to_torch(
 ########## Base class to inherit. Works for any Hilbert space and any inner product ########## |
 ############################################################################################## \/
 
-
 class BaseclassConformanceScore():
     def __init__(self, 
                  inner_prod_Gram_matrix:np.array, 
                  SVD_threshold:float = 0.01,
-                 print_rank:bool = True,
+                 verbose:bool = True,
                  SVD_max_rank:Optional[int] = None,
                 ):
-        """Class which computes the conformance score or Mahalanobis distance to a given 
-           corpus of elements {x_1, ..., x_N} originating from a separable Hilbert space.
+        """Class which computes the conformance score or Mahalanobis distance to a 
+        given corpus of elements {x_1, ..., x_N} originating from a Hilbert space.
 
         Args:
-            inner_prod_Gram_matrix (np.array): Gram matrix of shape (N,N) of inner products <x_i, x_j>.
-            SVD_threshold (float): Sets all eigenvalues of the covariance operator below this threshold to be 0.
-            print_rank (bool): If true, prints out the SVD rank after thresholding.
-            SVD_max_rank (int): Only allow 'SVD_max_rank' number of eigenvalues to be non-zero.
+            inner_prod_Gram_matrix (np.array): Gram matrix of shape (N,N) of inner 
+                                               products <x_i, x_j>.
+            SVD_threshold (float): Sets all eigenvalues of the covariance operator 
+                                   below this threshold to be 0.
+            verbose (bool): If true, prints out the SVD rank after thresholding.
+            SVD_max_rank (int): Only allow 'SVD_max_rank' number of eigenvalues to 
+                                be non-zero.
         """
         N,N = inner_prod_Gram_matrix.shape
 
         #calculate Gram matrix A_{i,j} = <f_i, f_j>. SVD decomposition A= U S U^t
         B = inner_prod_Gram_matrix #<x_i, x_j>
         a = np.mean(B, axis=0)
-        b = np.mean(a, axis=0)
+        b = np.mean(a)
         A = ( (B - np.expand_dims(a, axis=0)) - np.expand_dims(a, axis=1) + b) / N #<f_i, f_j>
 
         #SVD decomposition is equal to spectral decomposition
         U, S, Ut = np.linalg.svd( A )
         M = np.sum(S > SVD_threshold)
+        M = max(M, 1)
         M = min(M, SVD_max_rank) if SVD_max_rank is not None else M 
-        U, S = U[:, 0:M], S[0:M]
-        if print_rank:
+        U, S = U[:, 0:M], S[0:M] #Shapes (N,M) and (M)
+        if verbose:
             print("Covariance operator numerical rank = {}".format(M))
 
         #calculate matrix E_{i,m} = <x_i, e_m>,  (e_1, ... e_M) ONB of eigenvectors of covariance operator
-        E =  (B-np.expand_dims(a, axis=1)) @ U / np.sqrt(N*S)
-        c = np.mean(E, axis=0)
+        E =  (B-np.expand_dims(a, axis=1)) @ U / np.sqrt(N*S[None, :]) #shape (N,M)
+        c = np.mean(E, axis=0) #shape (M)
 
         #save
         self.E, self.U, self.S, self.c = E, U, S, c
 
 
     def _conformance_score(self, 
-                           inner_prod_y_en:np.array
+                           inner_prod_y_en:np.ndarray, # shape (..., N)
+                           return_all_levels:bool,
                            ):
         """Calculates the nearest neighbour variance distance of a new sample 'y' given 
         array of inner products <y, e_n> of eigenvectors of the covariance operator."""
-        #d_n = ||y-x_n||^2_{var-norm}
-        d = np.sum((inner_prod_y_en-self.E)**2 / self.S, axis=1)
-        nn_distance = np.sqrt(np.min(d))
-        return nn_distance
+        # d[l,n,m] = <y_l-x_n, e_m>^2 / S_m
+        d = inner_prod_y_en[..., None,:]-self.E[:, :] #shape (..., N, M)
+        d = d**2 / self.S[None, :] #shape (..., N, M)
+
+        # cumsum[l,n,m] = ||y_l-x_n||^2_{var-norm} at m'th threshold level
+        cumsum = np.cumsum(d, axis=-1) #shape (..., N, M)
+        nn_distance = np.sqrt(np.min(cumsum, axis=-2)) #shape (..., M)
+
+        if return_all_levels:
+            return nn_distance #shape (..., M)
+        else:
+            return nn_distance[..., -1] #shape (...)
     
 
     def _mahalanobis_distance(self,
-                              inner_prod_y_en:np.array
+                              inner_prod_y_en:np.ndarray, # shape (..., N)
+                              return_all_levels:bool,
                               ):
         """Calculates the Mahalanobis distance of a new sample 'y' given
         array of inner products <y, e_n> of eigenvectors of the covariance operator."""
-        #d = ||y- xbar||_{var-norm}
-        mahalanobis = np.sqrt(np.sum( (inner_prod_y_en-self.c)**2 / self.S ))
-        return mahalanobis
+        #d[l,m] = <y_l - xbar, e_m>^2 / S_m
+        d = inner_prod_y_en-self.c #shape (..., M)
+        d = d**2 / self.S #shape (..., M)
+
+        # cumsum[l,m] = ||y_l-xbar||^2_{var-norm} at m'th threshold level
+        sqrt_cumsum = np.sqrt(np.cumsum(d, axis=-1)) #shape (..., M)
+
+        if return_all_levels:
+            return sqrt_cumsum #shape (..., M)
+        else:
+            return sqrt_cumsum[..., -1] #shape (...)
 
 
     def _anomaly_distance(self, 
-                          inner_prod_y_xn : np.array,
-                          method:str = "conformance"
+                          inner_prod_y_xn : np.ndarray,
+                          method:str = "mahalanobis",
+                          return_all_levels:bool = False
                           ):
-        """ Returns the anomaly distance of a new sample 'y' with respect to the corpus {x_1, ..., x_N}.
-            Uses either conformance score (nearest neighbour variance distance), 
-            or Mahalanobis distance (variance distance to the mean).
+        """ Returns the anomaly distance of a new sample 'y' with respect to the 
+            corpus {x_1, ..., x_N}. Uses either conformance score (nearest neighbour 
+            variance distance), or Mahalanobis distance (variance distance to the mean).
 
         Args:
-            inner_prod_y_xn (np.array): Array of size N of inner products <x_n, y>.
+            inner_prod_y_xn (np.andrray): Array of shape(..., N) of inner products 
+                                    <y_k, x_n> (w.r.t. hilbert space inner product)
             method (str): Either "mahalanobis" or "conformance".
+            return_all_levels (bool): If true, returns the anomaly distance at all 
+                                      threshold levels.
+        
+        Returns np.ndarray: Anomaly distance of shape (...), (2, ...), (..., M), or 
+                            (2, ..., M) depending on 'method' and 'return_all_levels'.
         """
         N,M = self.U.shape
 
         # p_m = <y, e_m>
-        p = inner_prod_y_xn - np.mean(inner_prod_y_xn)
+        p = inner_prod_y_xn - np.mean(inner_prod_y_xn, axis=-1, keepdims=True)
         p = (p @ self.U) / np.sqrt(N*self.S)
-        
-        if method == "conformance":
-            return self._conformance_score(p)
-        elif method == "mahalanobis":
-            return self._mahalanobis_distance(p)
-        elif method == "both":
-            return self._conformance_score(p), self._mahalanobis_distance(p)
-        else:
-            raise RuntimeError("Argument 'method' must be in ['mahalanobis', 'conformance'].")
 
+        if method == "conformance":
+            return self._conformance_score(p, return_all_levels)
+        elif method == "mahalanobis":
+            return self._mahalanobis_distance(p, return_all_levels)
+        elif method == "both":
+            return np.array((self._conformance_score(p, return_all_levels), 
+                            self._mahalanobis_distance(p,return_all_levels)))
+        else:
+            msg = "Argument 'method' must be in ['mahalanobis', 'conformance', 'both']."
+            raise RuntimeError(msg)
+        
 
 ############################################################################################## |
 ################################## Anomaly distance in R^d ################################### |
