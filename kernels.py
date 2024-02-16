@@ -1,6 +1,8 @@
 import numpy as np
 from typing import List, Callable
 from numba import njit
+import numba as nb
+
 from scipy.interpolate import interp1d
 
 from conformance import pairwise_kernel_gram
@@ -216,7 +218,7 @@ def sig_kernel(s1:np.ndarray,
         return sig_kers
 
 
-@njit
+@njit((nb.float64[:, ::1], nb.int64), fastmath=True, cache=True)
 def reverse_cumsum(arr:np.ndarray, axis:int): #ndim=2
     """JITed reverse cumulative sum along the specified axis.
     (np.cumsum with axis is not natively supported by Numba)"""
@@ -230,10 +232,8 @@ def reverse_cumsum(arr:np.ndarray, axis:int): #ndim=2
     return A
 
 
-@njit
-def jitted_trunc_sig_kernel(nabla:np.ndarray, # gram matrix (T_1, T_2)
-                            order:int,
-                            ):
+@njit((nb.float64[:, ::1], nb.int64), fastmath=True, cache=True)
+def jitted_trunc_sig_kernel(nabla, order):
     """Given difference matrix nabla_ij = K[i+1, j+1] + K[i, j] - K[i+1, j] - K[i, j+1],
     computes the truncated signature kernel of all orders up to 'order'."""
     B = np.ones((order+1, order+1, order+1, *nabla.shape))
@@ -249,7 +249,8 @@ def jitted_trunc_sig_kernel(nabla:np.ndarray, # gram matrix (T_1, T_2)
                 rr = reverse_cumsum(rr, axis=1)
                 B[d+1,n,m, :-1, :-1] += rr[1:, 1:]
 
-    return B[:,0,0,0,0]
+    #copy, otherwise all memory accumulates in for loop
+    return B[1:,0,0,0,0].copy() 
 
 
 def sig_kernel_gram(

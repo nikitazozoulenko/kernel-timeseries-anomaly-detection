@@ -37,7 +37,7 @@ def pairwise_kernel_gram(X:List,
         indices = np.stack(np.meshgrid(np.arange(N), np.arange(M))).T.reshape(-1,2)
 
     #Calculate kernel Gram matrix
-    inner_products = Parallel(n_jobs=n_jobs)(
+    inner_products = Parallel(n_jobs=n_jobs, backend='loky')(
         delayed(pairwise_kernel)(X[i], Y[j]) 
         for i,j in tqdm(indices, disable = disable_tqdm, desc="Kernel Gram Matrix"))
 
