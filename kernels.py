@@ -2,10 +2,53 @@ import numpy as np
 from typing import List, Callable
 from numba import njit
 import numba as nb
+from joblib import Memory, Parallel, delayed
+from tqdm import tqdm
 
 from scipy.interpolate import interp1d
 
-from conformance import pairwise_kernel_gram
+
+def pairwise_kernel_gram(X:List, 
+                         Y:List, 
+                         pairwise_kernel:Callable, 
+                         sym:bool = False, 
+                         n_jobs:int = 1, 
+                         disable_tqdm:bool = False,
+                         ) -> np.ndarray:
+    """Calculates the kernel Gram matrix k(X_i, Y_j) of two collections X and Y
+    using joblib.Parallel for parallelization.
+
+    Args:
+        X (List): List of elements
+        Y (List): List of elements
+        pairwise_kernel (Callable): Takes in two elements and outputs a value.
+        sym (bool): If true, make Gram matrix symmetric.
+        n_jobs (int): Number of parallel jobs to run.
+        disable_tqdm (bool): Whether to disable the tqdm progress bar.
+    """
+    #Create indices to loop over
+    N, M = len(X), len(Y)
+    if sym:
+        if X is not Y:
+            raise ValueError("If sym=True, X and Y must be the same list.")
+        indices = np.stack(np.triu_indices(N)).T #triangular pairs
+    else:
+        indices = np.stack(np.meshgrid(np.arange(N), np.arange(M))).T.reshape(-1,2)
+
+    #Calculate kernel Gram matrix
+    inner_products = Parallel(n_jobs=n_jobs, backend='loky')(
+        delayed(pairwise_kernel)(X[i], Y[j]) 
+        for i,j in tqdm(indices, disable = disable_tqdm, desc="Kernel Gram Matrix"))
+
+    #Populate matrix
+    inner_prod_Gram_matrix = np.zeros((*inner_products[0].shape, N,M), 
+                                      dtype=np.float64)
+    for (i,j), val in zip(indices, inner_products):
+        inner_prod_Gram_matrix[..., i,j] = val
+        if sym:
+            inner_prod_Gram_matrix[..., j,i] = val
+
+    return inner_prod_Gram_matrix
 
 
 ##########################################################################
@@ -95,7 +138,7 @@ def rbf_kernel_gram(X:np.ndarray,
         xx = linear_kernel_gram(X, X, diag=True, divide_by_dims=divide_by_dims)
         xy = linear_kernel_gram(X, Y, diag=False, divide_by_dims=divide_by_dims)
         yy = linear_kernel_gram(Y, Y, diag=True, divide_by_dims=divide_by_dims)
-        norms_squared = xx[:, np.newaxis] + yy[np.newaxis, :] - 2*xy
+        norms_squared = -2*xy + xx[:, np.newaxis] + yy[np.newaxis, :] 
 
     d= X.shape[-1]
     return np.exp(-sigma * norms_squared)
