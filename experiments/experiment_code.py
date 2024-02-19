@@ -10,12 +10,13 @@ import tslearn
 import tslearn.metrics
 from tslearn.datasets import UCR_UEA_datasets
 import sigkernel
+import sys
+import os
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from models.conformance import BaseclassConformanceScore, stream_to_torch
 from models.kernels import linear_kernel_gram, rbf_kernel_gram, poly_kernel_gram
 from models.kernels import pairwise_kernel_gram, integral_kernel_gram, sig_kernel_gram
-
-
 
 def print_dataset_stats(num_classes, d, T, N_train, N_test):
     print("Number of Classes:", num_classes)

@@ -8,7 +8,7 @@ from tslearn.datasets import UCR_UEA_datasets
 import pickle
 import time
 
-from experiments.cross_validation import cv_given_dataset
+from cross_validation import cv_given_dataset
 
 
 def cv_tslearn(dataset_names:List[str], 

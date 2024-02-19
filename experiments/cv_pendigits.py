@@ -5,9 +5,12 @@ from joblib import Memory, Parallel, delayed
 import pandas as pd
 import pickle
 import time
+import sys
+import os
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from experiment_code import print_dataset_stats
-from experiments.cross_validation import cv_given_dataset
+from cross_validation import cv_given_dataset
 from models.signature import transform_stream
 
 
