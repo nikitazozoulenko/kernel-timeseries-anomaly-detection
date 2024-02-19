@@ -349,52 +349,5 @@ def cv_tslearn(dataset_names:List[str],
 
 
 if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser(description="Run this script to run cross validation on ts-learn datasets.")
-    parser.add_argument("--dataset_names", nargs="+", type=str, default=[
-            #'ArticularyWordRecognition', 
-            #'BasicMotions', 
-            #'Cricket',
-            ##########'ERing', #cant find dataset
-            'Libras', 
-            #'NATOPS', 
-            #'RacketSports',     
-            #'FingerMovements',
-            #'Heartbeat',
-            #'SelfRegulationSCP1', 
-            #'UWaveGestureLibrary'
-        ])
-    parser.add_argument("--kernel_names", nargs="+", type=str, default=[
-                "linear",
-                "rbf",
-                "poly",
-                "gak",
-                "truncated sig",
-                "truncated sig rbf",
-                "truncated sig poly",
-                "signature pde",
-                "signature pde rbf",
-                "signature pde poly",
-                "integral linear",
-                "integral rbf",
-                "integral poly",
-                ])
-
-    parser.add_argument("--k", type=int, default=5)
-    parser.add_argument("--n_repeats", type=int, default=10)
-    parser.add_argument("--n_jobs_repeats", type=int, default=50)
-    parser.add_argument("--n_jobs_gram", type=int, default=1)
-
-    args = vars(parser.parse_args())
-    print(args)
-
-    cv_best_models = cv_tslearn(
-            dataset_names = args["dataset_names"],
-            kernel_names = args["kernel_names"],
-            k = args["k"],
-            n_repeats = args["n_repeats"],
-            n_jobs_repeats = args["n_jobs_repeats"],
-            n_jobs_gram = args["n_jobs_gram"],
-                )
-    
-    print(cv_best_models)
+    #See scripts 'cv_tslearn' and 'cv_pendigits' for example usage
+    pass

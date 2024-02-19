@@ -5,8 +5,8 @@ import torch
 
 from typing import List, Optional, Dict, Set, Callable
 
-from signature import streams_to_sigs, transform_stream
-from kernels import pairwise_kernel_gram
+from models.signature import streams_to_sigs, transform_stream
+from models.kernels import pairwise_kernel_gram
 
 
 def stream_to_torch(

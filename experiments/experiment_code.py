@@ -11,9 +11,9 @@ import tslearn.metrics
 from tslearn.datasets import UCR_UEA_datasets
 import sigkernel
 
-from conformance import BaseclassConformanceScore, stream_to_torch
-from kernels import linear_kernel_gram, rbf_kernel_gram, poly_kernel_gram
-from kernels import pairwise_kernel_gram, integral_kernel_gram, sig_kernel_gram
+from models.conformance import BaseclassConformanceScore, stream_to_torch
+from models.kernels import linear_kernel_gram, rbf_kernel_gram, poly_kernel_gram
+from models.kernels import pairwise_kernel_gram, integral_kernel_gram, sig_kernel_gram
 
 
 
@@ -377,39 +377,6 @@ def run_all_kernels(X_train:List[np.ndarray],
 
 
 
-def validate_tslearn(
-        dataset_kernel_label_paramdict : Dict[str, Dict[str, Dict[str, Any]]],
-        n_jobs:int = 1, 
-        verbose:bool=True,
-        ):
-    """Validates the best models from cross validation on the
-    tslearn datasets using kernel conformance scores."""
-    experiments = {}
-    for dataset_name, results in dataset_kernel_label_paramdict.items():
-
-        # Load dataset
-        print(dataset_name)
-        X_train, y_train, X_test, y_test = UCR_UEA_datasets().load_dataset(dataset_name)
-        unique_labels = np.unique(y_train)
-        num_classes = len(unique_labels)
-        N_train, T, d = X_train.shape
-        N_test, _, _  = X_test.shape
-        print_dataset_stats(num_classes, d, T, N_train, N_test)
-
-        #validate on test set
-        kernelwise_dict = results["kernel_results"]
-        kernel_results = run_all_kernels(X_train, y_train, X_test, y_test, 
-                            unique_labels, kernelwise_dict, fixed_length=True, 
-                            n_jobs=n_jobs, verbose=verbose)
-        experiments[dataset_name] = {"results": kernel_results, 
-                                     "num_classes": num_classes, 
-                                     "path dim":d,
-                                     "ts_length":T, 
-                                     "N_train":N_train, 
-                                     "N_test":N_test}
-    return experiments
-
-
 if __name__ == "__main__":
+    # validation on test sets in jupyter notebooks
     pass
-    #read in the results from cross validations and validate on test set
