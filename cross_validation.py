@@ -104,12 +104,12 @@ def get_hyperparam_combinations(kernel_name:str):
 def get_hyperparam_ranges(kernel_name:str):
     """ Returns a dict of hyperparameter ranges for the specified kernel."""
     max_poly_p = 5
-    n_sigmas = 6
+    n_sigmas = 8
     ranges = {}
 
     #static kernel params. Note that sig and integral kernels also use this
     if "rbf" in kernel_name:
-        ranges["sigma"] = np.exp(np.linspace(-5, 0, n_sigmas))
+        ranges["sigma"] = np.exp(np.linspace(-6, 1, n_sigmas))
     elif "poly" in kernel_name:
         ranges["p"] = np.arange(2, max_poly_p+1)
 
@@ -135,6 +135,7 @@ def eval_1_paramdict_1_fold(fold:tuple,
                             fixed_length:bool,
                             min_fold_size:int,
                             n_jobs_gram:int=1,
+                            verbose:bool=False,
                             ):
     """Evaluates a single fold for a single hyperparameter configuration.
 
@@ -165,14 +166,15 @@ def eval_1_paramdict_1_fold(fold:tuple,
         aucs[:len(raw_aucs)] = aucs_to_objective(raw_aucs)
     # Computationally efficient truncated signature case
     else: 
-        MAX_ORDER = 15
+        MAX_ORDER = 10
         param_dict["order"] = MAX_ORDER
 
         # Obtain grams once instead of MAX_ORDER times
         corpus, test = get_corpus_and_test(X_train, y_train, X_val, 
                     class_to_test, fixed_length)
         vv_grams, uv_grams = calc_grams(corpus, test, param_dict, fixed_length, 
-                                        sig_kernel_only_last=False, n_jobs=n_jobs_gram)
+                                        sig_kernel_only_last=False, n_jobs=n_jobs_gram,
+                                        verbose=verbose)
         
         # Store aucs for each truncation level
         aucs = np.zeros((min_fold_size, MAX_ORDER))
@@ -186,7 +188,7 @@ def eval_1_paramdict_1_fold(fold:tuple,
                                 SVD_threshold=0,
                                 SVD_max_rank=min_fold_size,
                                 vv_gram=vv, uv_gram=uv, n_jobs=n_jobs_gram)
-            aucs[idx, :len(raw_aucs)] = aucs_to_objective(raw_aucs)
+            aucs[:len(raw_aucs), idx] = aucs_to_objective(raw_aucs)
 
     return aucs #auc shape (min_fold_size,) or (min_fold_size, n_truncs) for truncated sig
 
@@ -199,6 +201,7 @@ def eval_repeats_folds(kernel_name:str,
                 fixed_length:bool,
                 n_jobs_repeats:int = 1,
                 n_jobs_gram:int = 1,
+                verbose:bool = False,
                 ):
     """"We permform anomaly detection using 'class_to_test' as the normal class. 
     We then calculate the AUC scores for the given hyperparameters."""
@@ -215,8 +218,8 @@ def eval_repeats_folds(kernel_name:str,
 
         #loop over repeats and folds
         repeat_scores = Parallel(n_jobs=n_jobs_repeats)(
-            delayed(eval_1_paramdict_1_fold)(fold, class_to_test,
-                        param_dict, fixed_length, min_fold_size, n_jobs_gram)
+            delayed(eval_1_paramdict_1_fold)(fold, class_to_test, param_dict, 
+                            fixed_length, min_fold_size, n_jobs_gram, verbose)
             for repeats in repeats_and_folds
             for fold in repeats
         )
@@ -272,6 +275,7 @@ def cv_given_dataset(X:List,                #Training Dataset
                     n_repeats:int = 10,         #repeats of k-fold CV
                     n_jobs_repeats:int = 1,
                     n_jobs_gram:int = 1,
+                    verbose:bool = False
                     ):
     """Performs repeated k-fold cross-validation on the given dataset 
     for the anomaly detection models specified by 'kernel_names'. We 
@@ -290,7 +294,7 @@ def cv_given_dataset(X:List,                #Training Dataset
         for label in tqdm(unique_labels, desc = f"Label for {kernel_name}"):
             scores = eval_repeats_folds(kernel_name, repeats_and_folds,
                                         hyperparams, label, fixed_length,
-                                        n_jobs_repeats, n_jobs_gram)
+                                        n_jobs_repeats, n_jobs_gram, verbose)
             final_param_dict = choose_best_hyperparam(scores, hyperparams)
             labelwise_param_dicts[label] = final_param_dict
         kernelwise_param_dicts[kernel_name] = labelwise_param_dicts
@@ -307,6 +311,7 @@ def cv_tslearn(dataset_names:List[str],
                 n_repeats:int = 10,      #repeats of k-fold CV)
                 n_jobs_repeats:int = 1,
                 n_jobs_gram:int = 1,
+                verbose:bool = False
                 ):    
     """Cross validation for tslearn datasets"""
     current_time = int(time.time())
@@ -324,7 +329,7 @@ def cv_tslearn(dataset_names:List[str],
         t0 = time.time()
         kernelwise_param_dicts = cv_given_dataset(X_train, y_train, unique_labels, 
                                                 kernel_names, True, k, n_repeats, #fixed_length = True
-                                                n_jobs_repeats, n_jobs_gram)
+                                                n_jobs_repeats, n_jobs_gram, verbose)
         t1 = time.time()
         print(f"Time taken for dataset {dataset_name}:", t1-t0, "seconds\n\n\n")
         

@@ -66,12 +66,12 @@ def case_poly(train:np.ndarray,
     return case_static(train, test, poly_ker)
 
 
-def case_gak(train:List[np.ndarray], 
+def case_gak(train:List[np.ndarray],
                    test:List[np.ndarray], 
                    fixed_length:bool,
-                   sigma:float = 1.0,
                    n_jobs:int = 1,
-                   verbose:bool = False,):
+                   verbose:bool = False,
+                   sigma:float = 1.0,):
     """Calculates the gram matrices for the gak kernel.
     Train and test are lists of possibly variable length multidimension 
     time series of shape (T_i, d)"""
