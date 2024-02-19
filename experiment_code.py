@@ -349,60 +349,57 @@ def run_single_kernel_single_label(
 
 
 
-#TODO NO MORE KERNEL NAMES
-
 def run_all_kernels(X_train:List[np.ndarray], 
                     y_train:np.array, 
                     X_test:List[np.ndarray], 
                     y_test:np.array, 
                     unique_labels:np.array, 
-                    kernel_names:List[str],
+                    kernelwise_dict:Dict[str, Dict[str, Dict[str, Any]]], # kernel_name : label : param_dict
                     fixed_length:bool,
                     n_jobs:int = 1, 
                     verbose:bool = True,
                     ):
     kernel_results = {}
-    for kernel_name in kernel_names:
+    for kernel_name, labelwise_dict in kernelwise_dict.items():
         # 2 methods (conf, mahal), 2 metrics (roc_auc, pr_auc), C classes
         aucs = np.zeros( (2, 2, len(unique_labels)) ) 
-        for i, label in enumerate(unique_labels):
+        for i, (label, param_dict) in enumerate(labelwise_dict.items()):
             #run model
             scores = run_single_kernel_single_label(X_train, y_train, 
-                                    X_test, y_test,label, kernel_name, #TODO no more kernel name
+                                    X_test, y_test, label, param_dict,
                                     fixed_length, n_jobs=n_jobs, verbose=verbose)
             aucs[:,:, i] = scores
         
         #update kernel results
-        kernel_results[kernel_name] = aucs
+        kernel_results[kernel_name] = np.mean(aucs, axis=2)
     return kernel_results
 
 
-def run_tslearn_experiments(dataset_names:List[str], 
-                            kernel_names:List[str],
-                            n_jobs:int = 1, 
-                            verbose:bool=True,
-                            ):
-    """Runs a series of time series anomaly detection experiments on the specified 
+
+def validate_tslearn(
+        dataset_kernel_label_paramdict : Dict[str, Dict[str, Dict[str, Any]]],
+        n_jobs:int = 1, 
+        verbose:bool=True,
+        ):
+    """Validates the best models from cross validation on the
     tslearn datasets using kernel conformance scores."""
     experiments = {}
-    for dataset_name in dataset_names:
-        # Load dataset
-        X_train, y_train, X_test, y_test = UCR_UEA_datasets().load_dataset(dataset_name)
+    for dataset_name, results in dataset_kernel_label_paramdict.items():
 
-        # stats
+        # Load dataset
+        print(dataset_name)
+        X_train, y_train, X_test, y_test = UCR_UEA_datasets().load_dataset(dataset_name)
         unique_labels = np.unique(y_train)
         num_classes = len(unique_labels)
         N_train, T, d = X_train.shape
         N_test, _, _  = X_test.shape
         print_dataset_stats(num_classes, d, T, N_train, N_test)
 
-        # Run each kernel
+        #validate on test set
+        kernelwise_dict = results["kernel_results"]
         kernel_results = run_all_kernels(X_train, y_train, X_test, y_test, 
-                                         unique_labels, kernel_names,
-                                         fixed_length=True, n_jobs=n_jobs,
-                                         verbose=verbose)
-        
-        #log dataset experiment
+                            unique_labels, kernelwise_dict, fixed_length=True, 
+                            n_jobs=n_jobs, verbose=verbose)
         experiments[dataset_name] = {"results": kernel_results, 
                                      "num_classes": num_classes, 
                                      "path dim":d,
@@ -410,3 +407,8 @@ def run_tslearn_experiments(dataset_names:List[str],
                                      "N_train":N_train, 
                                      "N_test":N_test}
     return experiments
+
+
+if __name__ == "__main__":
+    pass
+    #read in the results from cross validations and validate on test set

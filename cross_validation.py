@@ -128,11 +128,12 @@ def aucs_to_objective(aucs:np.ndarray): #shape (M, 2, 2)
 
 
 
-def eval_1_paramdict_1_fold(fold,
-                            class_to_test,
-                            param_dict,
-                            fixed_length,
-                            min_fold_size,
+def eval_1_paramdict_1_fold(fold:tuple,
+                            class_to_test:Any,
+                            param_dict:Dict[str, Any],
+                            fixed_length:bool,
+                            min_fold_size:int,
+                            n_jobs_gram:int=1,
                             ):
     """Evaluates a single fold for a single hyperparameter configuration.
 
@@ -158,6 +159,7 @@ def eval_1_paramdict_1_fold(fold,
                             return_all_levels=True,
                             SVD_threshold=0,
                             SVD_max_rank=min_fold_size,
+                            n_jobs_gram=n_jobs_gram,
                             )
         aucs[:len(raw_aucs)] = aucs_to_objective(raw_aucs)
     # Computationally efficient truncated signature case
@@ -172,7 +174,7 @@ def eval_1_paramdict_1_fold(fold,
                                         sig_kernel_only_last=False)
         
         # Store aucs for each truncation level
-        aucs = np.zeros((MAX_ORDER, min_fold_size))
+        aucs = np.zeros((min_fold_size, MAX_ORDER))
         for idx, (vv, uv) in enumerate(zip(vv_grams, uv_grams)):
 
             raw_aucs = run_single_kernel_single_label(X_train, 
@@ -185,7 +187,7 @@ def eval_1_paramdict_1_fold(fold,
                                 vv_gram=vv, uv_gram=uv,)
             aucs[idx, :len(raw_aucs)] = aucs_to_objective(raw_aucs)
 
-    return aucs #auc shape (min_fold_size,) or (n_truncs, min_fold_size) for truncated sig
+    return aucs #auc shape (min_fold_size,) or (min_fold_size, n_truncs) for truncated sig
 
 
 
@@ -195,6 +197,7 @@ def eval_repeats_folds(kernel_name:str,
                 class_to_test,
                 fixed_length:bool,
                 n_jobs_repeats:int = 1,
+                n_jobs_gram:int = 1,
                 ):
     """"We permform anomaly detection using 'class_to_test' as the normal class. 
     We then calculate the AUC scores for the given hyperparameters."""
@@ -212,7 +215,7 @@ def eval_repeats_folds(kernel_name:str,
         #loop over repeats and folds
         repeat_scores = Parallel(n_jobs=n_jobs_repeats)(
             delayed(eval_1_paramdict_1_fold)(fold, class_to_test,
-                        param_dict, fixed_length, min_fold_size)
+                        param_dict, fixed_length, min_fold_size, n_jobs_gram)
             for repeats in repeats_and_folds
             for fold in repeats
         )
@@ -220,7 +223,7 @@ def eval_repeats_folds(kernel_name:str,
     
     #average across repeats and folds
     scores = np.array(scores)
-    scores = np.mean(scores, axis=(1, 2))
+    scores = np.mean(scores, axis=(1))
     return scores #shape (n_hyperparams, min_fold_size, (opt. dim: n_truncs))
 
 
@@ -267,6 +270,7 @@ def cv_given_dataset(X:List,                #Training Dataset
                     k:int = 4,                  #k-fold cross validation
                     n_repeats:int = 10,         #repeats of k-fold CV
                     n_jobs_repeats:int = 1,
+                    n_jobs_gram:int = 1,
                     ):
     """Performs repeated k-fold cross-validation on the given dataset 
     for the anomaly detection models specified by 'kernel_names'. We 
@@ -285,7 +289,7 @@ def cv_given_dataset(X:List,                #Training Dataset
         for label in tqdm(unique_labels, desc = f"Label for {kernel_name}"):
             scores = eval_repeats_folds(kernel_name, repeats_and_folds,
                                         hyperparams, label, fixed_length,
-                                        n_jobs_repeats)
+                                        n_jobs_repeats, n_jobs_gram)
             final_param_dict = choose_best_hyperparam(scores, hyperparams)
             labelwise_param_dicts[label] = final_param_dict
         kernelwise_param_dicts[kernel_name] = labelwise_param_dicts
@@ -301,6 +305,7 @@ def cv_tslearn(dataset_names:List[str],
                 k:int = 5,              #k-fold cross validation
                 n_repeats:int = 10,      #repeats of k-fold CV)
                 n_jobs_repeats:int = 1,
+                n_jobs_gram:int = 1,
                 ):    
     """Cross validation for tslearn datasets"""
 
@@ -317,7 +322,7 @@ def cv_tslearn(dataset_names:List[str],
         t0 = time.time()
         kernelwise_param_dicts = cv_given_dataset(X_train, y_train, unique_labels, 
                                                 kernel_names, True, k, n_repeats, #fixed_length = True
-                                                n_jobs_repeats)
+                                                n_jobs_repeats, n_jobs_gram)
         t1 = time.time()
         print(f"Time taken for dataset {dataset_name}:", t1-t0, "seconds\n\n\n")
         
@@ -331,21 +336,13 @@ def cv_tslearn(dataset_names:List[str],
         
 
     #save to disk
-    with open("CV_tslearn.pkl", 'wb') as handle:
+    current_time = int(time.time())
+    with open(f"CV_tslearn_{current_time}.pkl", 'wb') as handle:
         pickle.dump(cv_best_models, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     return cv_best_models
 
 
-
-
-
-#NEXT: TODO TODO TODO either 
-#   1) ---DONE--- add truncated signatures support
-#or 2) ---DONE--- create code that saves the best result for each dataset, kernel, label
-#or 3) ---DONE--- add for loop for all datasets
-#or 4) make the evaluation on test set work with param_dict
-#or 5) add joblib integration
 
 if __name__ == "__main__":
     cv_best_models = cv_tslearn(
