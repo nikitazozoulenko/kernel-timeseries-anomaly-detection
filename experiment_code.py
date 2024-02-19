@@ -367,7 +367,8 @@ def run_all_kernels(X_train:List[np.ndarray],
             #run model
             scores = run_single_kernel_single_label(X_train, y_train, 
                                     X_test, y_test, label, param_dict,
-                                    fixed_length, n_jobs=n_jobs, verbose=verbose)
+                                    fixed_length, n_jobs=n_jobs, verbose=verbose,
+                                    SVD_threshold=0, SVD_max_rank=param_dict["threshold"])
             aucs[:,:, i] = scores
         
         #update kernel results
