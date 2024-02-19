@@ -69,7 +69,9 @@ def case_poly(train:np.ndarray,
 def case_gak(train:List[np.ndarray], 
                    test:List[np.ndarray], 
                    fixed_length:bool,
-                   sigma:float = 1.0,):
+                   sigma:float = 1.0,
+                   n_jobs:int = 1,
+                   verbose:bool = False,):
     """Calculates the gram matrices for the gak kernel.
     Train and test are lists of possibly variable length multidimension 
     time series of shape (T_i, d)"""
@@ -79,8 +81,10 @@ def case_gak(train:List[np.ndarray],
 
     #compute gram matrices
     kernel = lambda s1, s2 : tslearn.metrics.gak(s1, s2, sigma)
-    vv_gram = pairwise_kernel_gram(train, train, kernel, sym=True, disable_tqdm=False)
-    uv_gram = pairwise_kernel_gram(test, train, kernel, sym=False, disable_tqdm=False)
+    vv_gram = pairwise_kernel_gram(train, train, kernel, sym=True, 
+                                   n_jobs=n_jobs, verbose=verbose)
+    uv_gram = pairwise_kernel_gram(test, train, kernel, sym=False, 
+                                   n_jobs=n_jobs, verbose=verbose)
     return vv_gram, uv_gram
 
 
@@ -113,6 +117,8 @@ def case_sig_pde(train:List[np.ndarray],
                  test:List[np.ndarray], 
                  dyadic_order:int = 3,
                  static_kernel = sigkernel.LinearKernel(),
+                 n_jobs:int = 1,
+                 verbose:bool = False,
                 ):
     """Calculates the signature kernel gram matrices of the train and test.
     Train and test are lists of possibly variable length multidimension 
@@ -121,8 +127,8 @@ def case_sig_pde(train:List[np.ndarray],
     kernel = lambda s1, s2 : sig_kernel.compute_kernel(
                                 stream_to_torch(s1), 
                                 stream_to_torch(s2)).numpy()[0]
-    vv_gram = pairwise_kernel_gram(train, train, kernel, sym=True, disable_tqdm=False)
-    uv_gram = pairwise_kernel_gram(test, train, kernel, sym=False, disable_tqdm=False)
+    vv_gram = pairwise_kernel_gram(train, train, kernel, sym=True, n_jobs=n_jobs, verbose=verbose)
+    uv_gram = pairwise_kernel_gram(test, train, kernel, sym=False, n_jobs=n_jobs, verbose=verbose)
     return vv_gram, uv_gram
 
 
@@ -132,9 +138,13 @@ def case_truncated_sig(
         order:int,
         static_kernel:Callable,
         only_last:bool,
+        n_jobs:int = 1,
+        verbose:bool = False,
         ):
-    vv_gram = sig_kernel_gram(train, train, order, static_kernel, only_last, sym=True)
-    uv_gram = sig_kernel_gram(test, train, order, static_kernel, only_last)
+    vv_gram = sig_kernel_gram(train, train, order, static_kernel, only_last, 
+                              sym=True, n_jobs=n_jobs, verbose=verbose)
+    uv_gram = sig_kernel_gram(test, train, order, static_kernel, only_last, 
+                              sym=False, n_jobs=n_jobs, verbose=verbose)
     return vv_gram, uv_gram
 
 
@@ -143,11 +153,13 @@ def case_integral(
         test:List[np.ndarray],
         static_kernel_with_diag:Callable,
         fixed_length:bool,
+        n_jobs:int = 1,
+        verbose:bool = False,
         ):
         vv_gram = integral_kernel_gram(train, train, static_kernel_with_diag, 
-                                       fixed_length, sym=True)
+                                fixed_length, sym=True, n_jobs=n_jobs, verbose=verbose)
         uv_gram = integral_kernel_gram(test, train, static_kernel_with_diag, 
-                                       fixed_length)
+                                fixed_length, n_jobs=n_jobs, verbose=verbose)
         return vv_gram, uv_gram
 
 
@@ -155,7 +167,9 @@ def calc_grams(train:List[np.ndarray],
                test:List[np.ndarray],
                param_dict:Dict[str, Any], # name : value
                fixed_length:bool, 
-               sig_kernel_only_last:bool = True #used in cross validation code
+               sig_kernel_only_last:bool = True, #used in cross validation code
+               n_jobs:int = 1,
+               verbose:bool = False,
                ):   
     """Calculates gram matrices <train, train>, <test, train> given a kernel.
     Train and test are lists of possibly variable length multidimension time 
@@ -178,48 +192,51 @@ def calc_grams(train:List[np.ndarray],
         return case_poly(train, test, param_dict["p"])
 
     elif kernel_name == "gak":
-        return case_gak(train, test, fixed_length)
+        return case_gak(train, test, fixed_length, n_jobs, verbose)
 
     elif kernel_name == "truncated sig":
         return case_truncated_sig(train, test, param_dict["order"], 
-                                  linear_kernel_gram, sig_kernel_only_last)
+                                  linear_kernel_gram, sig_kernel_only_last, 
+                                  n_jobs, verbose)
     
     elif kernel_name == "truncated sig rbf":
         ker = lambda X, Y: rbf_kernel_gram(X, Y, param_dict["sigma"])
         return case_truncated_sig(train, test, param_dict["order"], 
-                                  ker, sig_kernel_only_last)
+                                  ker, sig_kernel_only_last, n_jobs, verbose)
     
     elif kernel_name == "truncated sig poly":
         ker = lambda X, Y : poly_kernel_gram(X, Y, param_dict["p"])
         return case_truncated_sig(train, test, param_dict["order"], 
-                                  ker, sig_kernel_only_last)
+                                  ker, sig_kernel_only_last, n_jobs, verbose)
     
     elif kernel_name == "signature pde":
-        return case_sig_pde(train, 
-                            test,
-                            static_kernel=LinearKernel(1/train[0].shape[-1]),)
+        return case_sig_pde(train, test,
+                            static_kernel=LinearKernel(1/train[0].shape[-1]),
+                            n_jobs=n_jobs, verbose=verbose)
     
     elif kernel_name == "signature pde rbf":
         return case_sig_pde(train, test,
                             static_kernel=sigkernel.RBFKernel(
-                                param_dict["sigma"] * train[0].shape[-1]),)
+                                param_dict["sigma"] * train[0].shape[-1]),
+                            n_jobs=n_jobs, verbose=verbose)
 
     elif kernel_name == "signature pde poly":
         return case_sig_pde(train, 
                             test,
                             static_kernel=PolyKernel(
-                                1/train[0].shape[-1], param_dict["p"]),)
+                                1/train[0].shape[-1], param_dict["p"]),
+                            n_jobs=n_jobs, verbose=verbose)
     
     elif kernel_name == "integral linear":
-        return case_integral(train, test, linear_kernel_gram, fixed_length)
+        return case_integral(train, test, linear_kernel_gram, fixed_length, n_jobs, verbose)
 
     elif kernel_name == "integral rbf":
         ker = lambda X, Y, diag: rbf_kernel_gram(X, Y, param_dict["sigma"], diag)
-        return case_integral(train, test, ker, fixed_length)
+        return case_integral(train, test, ker, fixed_length, n_jobs, verbose)
 
     elif kernel_name == "integral poly":
         ker = lambda X, Y, diag : poly_kernel_gram(X, Y, param_dict["p"], diag)
-        return case_integral(train, test, ker, fixed_length)
+        return case_integral(train, test, ker, fixed_length, n_jobs, verbose)
     
     else:
         raise ValueError("Invalid kernel name:", kernel_name)
@@ -276,7 +293,7 @@ def run_single_kernel_single_label(
         y_train:np.ndarray,
         X_test:List[np.ndarray], 
         y_test:np.ndarray,
-        class_to_test,
+        class_to_test:Any,
         param_dict:Dict[str, Any], # name : value
         fixed_length:bool,
         SVD_threshold:float = 10e-14,
@@ -285,6 +302,7 @@ def run_single_kernel_single_label(
         vv_gram:Optional[np.ndarray] = None,
         uv_gram:Optional[np.ndarray] = None,
         return_all_levels:bool = False,
+        n_jobs:int = 1, 
         ):
     """Computes the AUC scores (weighted one vs rest) for a single kernel,
     using kernelized nearest neighbour variance adjusted distances.
@@ -294,26 +312,26 @@ def run_single_kernel_single_label(
         y_train (np.array): 1-dim array of class labels.
         X_test (List[np.ndarray]): List of time series of shape (T_i, d).
         y_test (np.array): 1-dim array of class labels.
-        unique_labels (np.array): Array of unique class labels.
-        kernel_name (str): Name of the kernel to use.
+        class_to_test (Any): Class label to test as normal class.
+        param_dict (Dict[str, Any]): Dictionary of kernel parameters.
         fixed_length (bool): If True, uses the optimized kernels for fixed 
                              length time series.
-        normalize (bool): If True, normalizes train and test by the training set
-                          mean and std.
-        dyadic_order (int): Dyadic order for PDE solver 
-                            (int > 0, higher = more accurate but slower).
-        max_batch (int): Batch size in sig kernel computations.
-        trunc_sig_dim_bound (int): Upper bound on the dimensionality of the 
-                                  truncated signature.
         SVD_threshold (float): Sets all eigenvalues below this threshold to be 0.
         SVD_max_rank (int): Sets all SVD eigenvalues to be 0 beyond 'SVD_max_rank'.
+        verbose (bool): If True, prints progress.
+        vv_gram (np.ndarray): Precomputed gram matrix for train set.
+        uv_gram (np.ndarray): Precomputed gram matrix for test train pairs.
+        return_all_levels (bool): If True, returns AUCs for all levels of the
+                                    anomaly distance scores.
+        n_jobs (int): Number of parallel jobs to run in pairwise Gram calculations.
     """
 
     # Calculate amomaly distancce scores for all test samples
     if (vv_gram is None) and (uv_gram is None):
         corpus, test = get_corpus_and_test(X_train, y_train, X_test, 
                                        class_to_test, fixed_length)
-        vv_gram, uv_gram = calc_grams(corpus, test, param_dict, fixed_length)
+        vv_gram, uv_gram = calc_grams(corpus, test, param_dict, fixed_length, 
+                                      n_jobs=n_jobs, verbose=verbose)
     scorer = BaseclassConformanceScore(vv_gram, SVD_threshold, verbose=verbose, 
                                     SVD_max_rank=SVD_max_rank)
         
@@ -330,6 +348,9 @@ def run_single_kernel_single_label(
     return aucs #shape (2, 2) or (M, 2, 2)
 
 
+
+#TODO NO MORE KERNEL NAMES
+
 def run_all_kernels(X_train:List[np.ndarray], 
                     y_train:np.array, 
                     X_test:List[np.ndarray], 
@@ -337,6 +358,7 @@ def run_all_kernels(X_train:List[np.ndarray],
                     unique_labels:np.array, 
                     kernel_names:List[str],
                     fixed_length:bool,
+                    n_jobs:int = 1, 
                     verbose:bool = True,
                     ):
     kernel_results = {}
@@ -347,7 +369,7 @@ def run_all_kernels(X_train:List[np.ndarray],
             #run model
             scores = run_single_kernel_single_label(X_train, y_train, 
                                     X_test, y_test,label, kernel_name, #TODO no more kernel name
-                                    fixed_length, verbose=verbose)
+                                    fixed_length, n_jobs=n_jobs, verbose=verbose)
             aucs[:,:, i] = scores
         
         #update kernel results
@@ -357,6 +379,7 @@ def run_all_kernels(X_train:List[np.ndarray],
 
 def run_tslearn_experiments(dataset_names:List[str], 
                             kernel_names:List[str],
+                            n_jobs:int = 1, 
                             verbose:bool=True,
                             ):
     """Runs a series of time series anomaly detection experiments on the specified 
@@ -376,7 +399,7 @@ def run_tslearn_experiments(dataset_names:List[str],
         # Run each kernel
         kernel_results = run_all_kernels(X_train, y_train, X_test, y_test, 
                                          unique_labels, kernel_names,
-                                         fixed_length=True,
+                                         fixed_length=True, n_jobs=n_jobs,
                                          verbose=verbose)
         
         #log dataset experiment

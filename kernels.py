@@ -13,7 +13,7 @@ def pairwise_kernel_gram(X:List,
                          pairwise_kernel:Callable, 
                          sym:bool = False, 
                          n_jobs:int = 1, 
-                         disable_tqdm:bool = False,
+                         verbose:bool = False,
                          ) -> np.ndarray:
     """Calculates the kernel Gram matrix k(X_i, Y_j) of two collections X and Y
     using joblib.Parallel for parallelization.
@@ -24,7 +24,7 @@ def pairwise_kernel_gram(X:List,
         pairwise_kernel (Callable): Takes in two elements and outputs a value.
         sym (bool): If true, make Gram matrix symmetric.
         n_jobs (int): Number of parallel jobs to run.
-        disable_tqdm (bool): Whether to disable the tqdm progress bar.
+        verbose (bool): Whether to enable the tqdm progress bar.
     """
     #Create indices to loop over
     N, M = len(X), len(Y)
@@ -38,7 +38,7 @@ def pairwise_kernel_gram(X:List,
     #Calculate kernel Gram matrix
     inner_products = Parallel(n_jobs=n_jobs, backend='loky')(
         delayed(pairwise_kernel)(X[i], Y[j]) 
-        for i,j in tqdm(indices, disable = disable_tqdm, desc="Kernel Gram Matrix"))
+        for i,j in tqdm(indices, disable = not verbose, desc="Kernel Gram Matrix"))
 
     #Populate matrix
     inner_prod_Gram_matrix = np.zeros((*inner_products[0].shape, N,M), 
@@ -54,6 +54,7 @@ def pairwise_kernel_gram(X:List,
 ##########################################################################
 ######################## Static Kernels on R^d ###########################
 ##########################################################################
+
 
 def _check_gram_dims(X:np.ndarray, 
                      Y:np.ndarray,
@@ -77,6 +78,7 @@ def _check_gram_dims(X:np.ndarray,
     N2 = Y.shape[0]
     if diag and N1!=N2:
         raise ValueError("If 'diag' is True, X and Y must have the same number of samples.")
+
 
 
 def linear_kernel_gram(X:np.ndarray, 
@@ -111,6 +113,7 @@ def linear_kernel_gram(X:np.ndarray,
     return out
 
 
+
 def rbf_kernel_gram(X:np.ndarray, 
                     Y:np.ndarray,
                     sigma:float,
@@ -142,6 +145,7 @@ def rbf_kernel_gram(X:np.ndarray,
 
     d= X.shape[-1]
     return np.exp(-sigma * norms_squared)
+
 
 
 def poly_kernel_gram(X:np.ndarray, 
@@ -204,16 +208,18 @@ def integral_kernel(s1: np.ndarray,
     return np.trapz(Kt, times)
 
 
+
 def integral_kernel_gram(
         X:List[np.ndarray],
         Y:List[np.ndarray],
         static_kernel_gram:Callable, #either linear_kernel_gram or rbf_kernel_gram with "diag" argument
         fixed_length:bool,
         sym:bool = False,
+        n_jobs:int = 1,
+        verbose:bool = False,
     ):
     """Computes the Gram matrix K(X_i, Y_j) of the integral kernel 
     K(x, y) = \int k(x_t, y_t) dt.
-
 
     Args:
         static_kernel_gram (Callable): Gram kernel function taking in two ndarrays and
@@ -224,6 +230,8 @@ def integral_kernel_gram(
         fixed_length (bool): If True, uses the optimized kernels for fixed 
                                 length time series.
         sym (bool): If True, computes the symmetric Gram matrix.
+        n_jobs (int): Number of parallel jobs to run.
+        verbose (bool): Whether to enable the tqdm progress bar.
     """
     if fixed_length:
         X = np.array(X)
@@ -236,10 +244,8 @@ def integral_kernel_gram(
     else:
         static_ker = lambda a,b : static_kernel_gram(a,b, True) #diag=True
         pairwise_int_ker = lambda s1, s2 : integral_kernel(s1, s2, static_ker)
-        return pairwise_kernel_gram(X,
-                                    Y,
-                                    pairwise_int_ker,
-                                    sym)
+        return pairwise_kernel_gram(X, Y, pairwise_int_ker, sym, n_jobs, verbose)
+
 
 ############################################################################
 ################# signature kernels of static kernels ######################
@@ -261,6 +267,7 @@ def sig_kernel(s1:np.ndarray,
         return sig_kers
 
 
+
 @njit((nb.float64[:, ::1], nb.int64), fastmath=True, cache=True)
 def reverse_cumsum(arr:np.ndarray, axis:int): #ndim=2
     """JITed reverse cumulative sum along the specified axis.
@@ -273,6 +280,7 @@ def reverse_cumsum(arr:np.ndarray, axis:int): #ndim=2
         for i in np.arange(A.shape[1]-2, -1, -1):
             A[:,i] += A[:,i+1]
     return A
+
 
 
 @njit((nb.float64[:, ::1], nb.int64), fastmath=True, cache=True)
@@ -296,6 +304,7 @@ def jitted_trunc_sig_kernel(nabla, order):
     return B[1:,0,0,0,0].copy() 
 
 
+
 def sig_kernel_gram(
         X:List[np.ndarray],
         Y:List[np.ndarray],
@@ -303,6 +312,8 @@ def sig_kernel_gram(
         static_kernel_gram:Callable,
         only_last:bool = True,
         sym:bool = False,
+        n_jobs:int = 1,
+        verbose:bool = False,
     ):
     """Computes the Gram matrix k_sig(X_i, Y_j) of the signature kernel,
     given the static kernel k(x, y) and the truncation order.
@@ -315,11 +326,10 @@ def sig_kernel_gram(
         order (int): Truncation level of the signature kernel.
         only_last (bool): If False, returns results of all truncation levels up to 'order'.
         sym (bool): If True, computes the symmetric Gram matrix.
+        n_jobs (int): Number of parallel jobs to run.
+        verbose (bool): Whether to enable the tqdm progress bar.
     """
     pairwise_ker = lambda s1, s2 : sig_kernel(s1, s2, order, static_kernel_gram, only_last)
-    return pairwise_kernel_gram(X,
-                                Y,
-                                pairwise_ker,
-                                sym)
+    return pairwise_kernel_gram(X, Y, pairwise_ker, sym, n_jobs, verbose)
 
 

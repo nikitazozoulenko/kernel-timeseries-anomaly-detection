@@ -1,8 +1,4 @@
 import numpy as np
-import sklearn.metrics
-import plotly.express as px
-import plotly.graph_objects as go
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 from typing import List, Optional, Dict, Set, Callable, Any
 from joblib import Memory, Parallel, delayed
@@ -12,7 +8,7 @@ from tslearn.datasets import UCR_UEA_datasets
 import pickle
 import time
 
-from run_experiments import run_single_kernel_single_label, get_corpus_and_test, calc_grams
+from experiment_code import run_single_kernel_single_label, get_corpus_and_test, calc_grams
 
 
 #######################################################################
@@ -25,6 +21,7 @@ def repeat_k_folds(X:List,    #dataset
                 n_repeats:int,):
     repeats = [create_k_folds(X, y, k) for _ in range(n_repeats)]
     return repeats
+
 
 
 def create_k_folds(X:List,    #dataset
@@ -102,6 +99,7 @@ def get_hyperparam_combinations(kernel_name:str):
         return [{}]
 
 
+
 def get_hyperparam_ranges(kernel_name:str):
     """ Returns a dict of hyperparameter ranges for the specified kernel."""
     max_poly_p = 5
@@ -129,6 +127,7 @@ def aucs_to_objective(aucs:np.ndarray): #shape (M, 2, 2)
     return aucs #shape (M,)
 
 
+
 def eval_1_paramdict_1_fold(fold,
                             class_to_test,
                             param_dict,
@@ -152,16 +151,17 @@ def eval_1_paramdict_1_fold(fold,
     # Simple case for most methods
     if "truncated sig" not in param_dict["kernel_name"]:
         # aucs shape (M, 2, 2), M <= min_fold_size
-        aucs = run_single_kernel_single_label(X_train, y_train, X_val, y_val,
+        aucs = np.zeros(min_fold_size)
+        raw_aucs = run_single_kernel_single_label(X_train, y_train, X_val, y_val,
                             class_to_test, param_dict,
                             fixed_length, verbose=False,
                             return_all_levels=True,
                             SVD_threshold=0,
                             SVD_max_rank=min_fold_size,
                             )
-        return aucs_to_objective(aucs)
-
-    else: # Computationally efficient truncated signature case
+        aucs[:len(raw_aucs)] = aucs_to_objective(raw_aucs)
+    # Computationally efficient truncated signature case
+    else: 
         MAX_ORDER = 15
         param_dict["order"] = MAX_ORDER
 
@@ -183,9 +183,10 @@ def eval_1_paramdict_1_fold(fold,
                                 SVD_threshold=0,
                                 SVD_max_rank=min_fold_size,
                                 vv_gram=vv, uv_gram=uv,)
-            
             aucs[idx, :len(raw_aucs)] = aucs_to_objective(raw_aucs)
-        return aucs
+
+    return aucs #auc shape (min_fold_size,) or (n_truncs, min_fold_size) for truncated sig
+
 
 
 def eval_repeats_folds(kernel_name:str,
@@ -193,6 +194,7 @@ def eval_repeats_folds(kernel_name:str,
                 hyperparams:List[Dict[str, Any]],  #List of {name : hyperparam_value}
                 class_to_test,
                 fixed_length:bool,
+                n_jobs_repeats:int = 1,
                 ):
     """"We permform anomaly detection using 'class_to_test' as the normal class. 
     We then calculate the AUC scores for the given hyperparameters."""
@@ -205,22 +207,15 @@ def eval_repeats_folds(kernel_name:str,
     scores = []
     for param_dict in hyperparams:
         param_dict["kernel_name"] = kernel_name
+        param_dict["normal_class_label"] = class_to_test
 
         #loop over repeats and folds
-        repeat_scores = []
-        for folds in repeats_and_folds:
-            folds_scores = []
-            for fold in folds:
-                #auc shape (M,) or (n_truncs, M) for truncated sig
-                auc = eval_1_paramdict_1_fold(fold, class_to_test,
-                            param_dict, fixed_length, min_fold_size)
-                fix_shape = (*auc.shape[:-1], min_fold_size)
-                score = np.zeros(fix_shape)
-                M = auc.shape[-1]
-                score[..., :M] = auc[..., :M]
-
-                folds_scores.append(score)
-            repeat_scores.append(folds_scores)
+        repeat_scores = Parallel(n_jobs=n_jobs_repeats)(
+            delayed(eval_1_paramdict_1_fold)(fold, class_to_test,
+                        param_dict, fixed_length, min_fold_size)
+            for repeats in repeats_and_folds
+            for fold in repeats
+        )
         scores.append(repeat_scores)
     
     #average across repeats and folds
@@ -229,18 +224,54 @@ def eval_repeats_folds(kernel_name:str,
     return scores #shape (n_hyperparams, min_fold_size, (opt. dim: n_truncs))
 
 
+
+def choose_best_hyperparam(scores:np.ndarray,
+                           hyperparams:List[Dict[str, Any]],
+                        ):
+    """Chooses the best hyperparameter configuration based on the AUC 
+    scores outputed from 'eval_repeats_folds'."""
+    
+    #scores shape (n_hyperparams, min_fold_size, (opt. dim: n_truncs))
+    dims = np.arange(scores.ndim) 
+    max_params = np.max(scores, axis=tuple(dims[1:]) )
+    best_param_idx = np.argmax(max_params)
+    max_thresh = np.max(scores, axis=(0, *dims[2:]))
+    best_thresh_idx = np.argmax(max_thresh)
+
+    #choose best param_dict
+    final_param_dict = hyperparams[best_param_idx].copy()
+    final_param_dict["threshold"] = 1 + best_thresh_idx
+    final_param_dict["CV_train_auc"] = max_params[best_param_idx]
+    kernel_name = final_param_dict["kernel_name"]
+
+    #store some extra stats
+    final_param_dict["auc_params"] = max_params
+    final_param_dict["auc_thresh"] = max_thresh
+
+    #optional: best truncation level
+    if "truncated sig" in kernel_name:
+        max_truncs = np.max(scores, axis=(0, 1))
+        best_trunc_idx = np.argmax(max_truncs)
+        final_param_dict["order"] = 1+best_trunc_idx
+        final_param_dict["auc_orders"] = max_truncs
+    
+    return final_param_dict
+
+
+
 def cv_given_dataset(X:List,                #Training Dataset
                     y:np.array,             #Training class labels
                     unique_labels:np.array, #Unique class labels
                     kernel_names:List[str],
                     fixed_length:bool,
-                    k:int = 4,          #k-fold cross validation
-                    n_repeats:int = 2,  #repeats of k-fold CV
+                    k:int = 4,                  #k-fold cross validation
+                    n_repeats:int = 10,         #repeats of k-fold CV
+                    n_jobs_repeats:int = 1,
                     ):
     """Performs repeated k-fold cross-validation on the given dataset 
-    for the anomaly detection models specified in 'kernel_names'. We 
-    use the AUC scores to evaluate the performance of the models.
-    TODO saves the models as..... list of dict..... idk"""
+    for the anomaly detection models specified by 'kernel_names'. We 
+    use the AUC scores to evaluate the performance of the models. Saves
+    the result as a nested dictionary of the form {kernel : label : params}"""
 
     repeats_and_folds = repeat_k_folds(X, y, k, n_repeats)
 
@@ -251,43 +282,25 @@ def cv_given_dataset(X:List,                #Training Dataset
         #loop over normal class
         labelwise_param_dicts = {} # label : param_dict
         t0 = time.time()
-        for label in tqdm(unique_labels, 
-                          desc=f"Label for {kernel_name}"):
-    
-            #scores shape (n_hyperparams, min_fold_size, (opt. dim: n_truncs))
+        for label in tqdm(unique_labels, desc = f"Label for {kernel_name}"):
             scores = eval_repeats_folds(kernel_name, repeats_and_folds,
-                                        hyperparams, label, fixed_length)
-
-            dims = np.arange(scores.ndim) 
-
-            max_params = np.max(scores, axis=tuple(dims[1:]) )
-            best_param_idx = np.argmax(max_params)
-            max_thresh = np.max(scores, axis=(0, *dims[2:]))
-            best_thresh_idx = np.argmax(max_thresh)
-
-            final_param_dict = hyperparams[best_param_idx].copy()
-            final_param_dict["threshold"] = 1 + best_thresh_idx
-            final_param_dict["normal_class_label"] = label
-            final_param_dict["CV_train_auc"] = max_params[best_param_idx]
-
-            #optional: best truncation level
-            if "truncated sig" in kernel_name:
-                max_truncs = np.max(scores, axis=(0, 1))
-                best_trunc_idx = np.argmax(max_truncs)
-                final_param_dict["order"] = 1+best_trunc_idx
-            
-            #store
+                                        hyperparams, label, fixed_length,
+                                        n_jobs_repeats)
+            final_param_dict = choose_best_hyperparam(scores, hyperparams)
             labelwise_param_dicts[label] = final_param_dict
         kernelwise_param_dicts[kernel_name] = labelwise_param_dicts
+
         t1 = time.time()
         print(f"Time taken for kernel {kernel_name}:", t1-t0, "seconds")
     return kernelwise_param_dicts
+
 
 
 def cv_tslearn(dataset_names:List[str], 
                 kernel_names:List[str],
                 k:int = 5,              #k-fold cross validation
                 n_repeats:int = 10,      #repeats of k-fold CV)
+                n_jobs_repeats:int = 1,
                 ):    
     """Cross validation for tslearn datasets"""
 
@@ -296,8 +309,6 @@ def cv_tslearn(dataset_names:List[str],
         print("Dataset:", dataset_name)
         # Load dataset
         X_train, y_train, X_test, y_test = UCR_UEA_datasets().load_dataset(dataset_name)
-
-        # stats
         unique_labels = np.unique(y_train)
         num_classes = len(unique_labels)
         N_train, T, d = X_train.shape
@@ -305,8 +316,8 @@ def cv_tslearn(dataset_names:List[str],
         # Run each kernel
         t0 = time.time()
         kernelwise_param_dicts = cv_given_dataset(X_train, y_train, unique_labels, 
-                                                kernel_names, fixed_length=True,
-                                                k=k, n_repeats=n_repeats)
+                                                kernel_names, True, k, n_repeats, #fixed_length = True
+                                                n_jobs_repeats)
         t1 = time.time()
         print(f"Time taken for dataset {dataset_name}:", t1-t0, "seconds\n\n\n")
         
@@ -324,6 +335,8 @@ def cv_tslearn(dataset_names:List[str],
         pickle.dump(cv_best_models, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     return cv_best_models
+
+
 
 
 
