@@ -308,6 +308,7 @@ def cv_tslearn(dataset_names:List[str],
                 n_jobs_gram:int = 1,
                 ):    
     """Cross validation for tslearn datasets"""
+    current_time = int(time.time())
 
     cv_best_models = {} # dataset_name : kernel_name : label : param_dict
     for dataset_name in dataset_names:
@@ -333,10 +334,7 @@ def cv_tslearn(dataset_names:List[str],
                                      "ts_length":T, 
                                      "N_train":N_train
                                      }
-        
-
     #save to disk
-    current_time = int(time.time())
     with open(f"CV_tslearn_{current_time}.pkl", 'wb') as handle:
         pickle.dump(cv_best_models, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -345,21 +343,22 @@ def cv_tslearn(dataset_names:List[str],
 
 
 if __name__ == "__main__":
-    cv_best_models = cv_tslearn(
-            dataset_names = [
-                #'ArticularyWordRecognition', 
-                #'BasicMotions', 
-                #'Cricket',
-                ##########'ERing', #cant find dataset
-                'Libras', 
-                #'NATOPS', 
-                #'RacketSports',     
-                #'FingerMovements',
-                #'Heartbeat',
-                #'SelfRegulationSCP1', 
-                #'UWaveGestureLibrary'
-                ],
-            kernel_names = [
+    import argparse
+    parser = argparse.ArgumentParser(description="Run this script to run cross validation on ts-learn datasets.")
+    parser.add_argument("--dataset_names", nargs="+", type=str, default=[
+            #'ArticularyWordRecognition', 
+            #'BasicMotions', 
+            #'Cricket',
+            ##########'ERing', #cant find dataset
+            'Libras', 
+            #'NATOPS', 
+            #'RacketSports',     
+            #'FingerMovements',
+            #'Heartbeat',
+            #'SelfRegulationSCP1', 
+            #'UWaveGestureLibrary'
+        ])
+    parser.add_argument("--kernel_names", nargs="+", type=str, default=[
                 "linear",
                 "rbf",
                 "poly",
@@ -373,5 +372,23 @@ if __name__ == "__main__":
                 "integral linear",
                 "integral rbf",
                 "integral poly",
-                ],
+                ])
+
+    parser.add_argument("--k", type=int, default=5)
+    parser.add_argument("--n_repeats", type=int, default=10)
+    parser.add_argument("--n_jobs_repeats", type=int, default=50)
+    parser.add_argument("--n_jobs_gram", type=int, default=1)
+
+    args = vars(parser.parse_args())
+    print(args)
+
+    cv_best_models = cv_tslearn(
+            dataset_names = args["dataset_names"],
+            kernel_names = args["kernel_names"],
+            k = args["k"],
+            n_repeats = args["n_repeats"],
+            n_jobs_repeats = args["n_jobs_repeats"],
+            n_jobs_gram = args["n_jobs_gram"],
                 )
+    
+    print(cv_best_models)
