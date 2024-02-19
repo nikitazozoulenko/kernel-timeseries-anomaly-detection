@@ -159,7 +159,7 @@ def eval_1_paramdict_1_fold(fold:tuple,
                             return_all_levels=True,
                             SVD_threshold=0,
                             SVD_max_rank=min_fold_size,
-                            n_jobs_gram=n_jobs_gram,
+                            n_jobs=n_jobs_gram,
                             )
         aucs[:len(raw_aucs)] = aucs_to_objective(raw_aucs)
     # Computationally efficient truncated signature case
@@ -171,7 +171,7 @@ def eval_1_paramdict_1_fold(fold:tuple,
         corpus, test = get_corpus_and_test(X_train, y_train, X_val, 
                     class_to_test, fixed_length)
         vv_grams, uv_grams = calc_grams(corpus, test, param_dict, fixed_length, 
-                                        sig_kernel_only_last=False)
+                                        sig_kernel_only_last=False, n_jobs=n_jobs_gram)
         
         # Store aucs for each truncation level
         aucs = np.zeros((min_fold_size, MAX_ORDER))
@@ -184,7 +184,7 @@ def eval_1_paramdict_1_fold(fold:tuple,
                                 return_all_levels=True,
                                 SVD_threshold=0,
                                 SVD_max_rank=min_fold_size,
-                                vv_gram=vv, uv_gram=uv,)
+                                vv_gram=vv, uv_gram=uv, n_jobs=n_jobs_gram)
             aucs[idx, :len(raw_aucs)] = aucs_to_objective(raw_aucs)
 
     return aucs #auc shape (min_fold_size,) or (min_fold_size, n_truncs) for truncated sig
