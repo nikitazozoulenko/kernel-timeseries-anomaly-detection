@@ -72,20 +72,22 @@ def case_gak(train:List[np.ndarray],
                    fixed_length:bool,
                    n_jobs:int = 1,
                    verbose:bool = False,
-                   sigma:float = 1.0,):
+                   gak_factor:float = 1.0,):
     """Calculates the gram matrices for the gak kernel.
     Train and test are lists of possibly variable length multidimension 
     time series of shape (T_i, d)"""
-    #pick sigma parameter according to GAK paper
     if fixed_length:
-        sigma = tslearn.metrics.sigma_gak(np.array(train))
-
-    #compute gram matrices
-    kernel = lambda s1, s2 : tslearn.metrics.gak(s1, s2, sigma)
-    vv_gram = pairwise_kernel_gram(train, train, kernel, sym=True, 
-                                   n_jobs=n_jobs, verbose=verbose)
-    uv_gram = pairwise_kernel_gram(test, train, kernel, sym=False, 
-                                   n_jobs=n_jobs, verbose=verbose)
+        #pick sigma parameter according to GAK paper
+        sigma = gak_factor * tslearn.metrics.sigma_gak(np.array(train))
+        vv_gram = tslearn.metrics.cdist_gak(train, sigma=sigma, n_jobs=n_jobs)
+        uv_gram = tslearn.metrics.cdist_gak(test, train, sigma=sigma, n_jobs=n_jobs)
+    else:
+        sigma=gak_factor * 30.0
+        kernel = lambda s1, s2 : tslearn.metrics.gak(s1, s2, sigma)
+        vv_gram = pairwise_kernel_gram(train, train, kernel, sym=True, 
+                                    n_jobs=n_jobs, verbose=verbose)
+        uv_gram = pairwise_kernel_gram(test, train, kernel, sym=False, 
+                                    n_jobs=n_jobs, verbose=verbose)
     return vv_gram, uv_gram
 
 
@@ -116,7 +118,7 @@ class PolyKernel():
  
 def case_sig_pde(train:List[np.ndarray], 
                  test:List[np.ndarray], 
-                 dyadic_order:int = 3,
+                 dyadic_order:int = 5,
                  static_kernel = sigkernel.LinearKernel(),
                  n_jobs:int = 1,
                  verbose:bool = False,
@@ -193,15 +195,17 @@ def calc_grams(train:List[np.ndarray],
         return case_poly(train, test, param_dict["p"])
 
     elif kernel_name == "gak":
-        return case_gak(train, test, fixed_length, n_jobs, verbose)
-
-    elif kernel_name == "truncated sig":
+        return case_gak(train, test, fixed_length, n_jobs, verbose, param_dict["gak_factor"])
+    
+    T, d = train[0].shape[-2:]
+    if kernel_name == "truncated sig":
+        ker = lambda X, Y: linear_kernel_gram(X, Y) 
         return case_truncated_sig(train, test, param_dict["order"], 
-                                  linear_kernel_gram, sig_kernel_only_last, 
+                                  ker, sig_kernel_only_last, 
                                   n_jobs, verbose)
     
     elif kernel_name == "truncated sig rbf":
-        ker = lambda X, Y: rbf_kernel_gram(X, Y, param_dict["sigma"])
+        ker = lambda X, Y: rbf_kernel_gram(X, Y, param_dict["sigma"]) 
         return case_truncated_sig(train, test, param_dict["order"], 
                                   ker, sig_kernel_only_last, n_jobs, verbose)
     
@@ -209,24 +213,25 @@ def calc_grams(train:List[np.ndarray],
         ker = lambda X, Y : poly_kernel_gram(X, Y, param_dict["p"])
         return case_truncated_sig(train, test, param_dict["order"], 
                                   ker, sig_kernel_only_last, n_jobs, verbose)
-    
+
     elif kernel_name == "signature pde":
         return case_sig_pde(train, test,
-                            static_kernel=LinearKernel(1/train[0].shape[-1]),
-                            n_jobs=n_jobs, verbose=verbose)
+                            static_kernel=LinearKernel(1/d),
+                            n_jobs=n_jobs, verbose=verbose, 
+                            dyadic_order=param_dict["dyadic_order"])
     
     elif kernel_name == "signature pde rbf":
         return case_sig_pde(train, test,
-                            static_kernel=sigkernel.RBFKernel(
-                                param_dict["sigma"] * train[0].shape[-1]),
-                            n_jobs=n_jobs, verbose=verbose)
+                            static_kernel=sigkernel.RBFKernel(param_dict["sigma"]*d), 
+                            n_jobs=n_jobs, verbose=verbose,
+                            dyadic_order=param_dict["dyadic_order"])
 
     elif kernel_name == "signature pde poly":
         return case_sig_pde(train, 
                             test,
-                            static_kernel=PolyKernel(
-                                1/train[0].shape[-1], param_dict["p"]),
-                            n_jobs=n_jobs, verbose=verbose)
+                            static_kernel=PolyKernel(1/d, param_dict["p"]),
+                            n_jobs=n_jobs, verbose=verbose,
+                            dyadic_order=param_dict["dyadic_order"])
     
     elif kernel_name == "integral linear":
         return case_integral(train, test, linear_kernel_gram, fixed_length, n_jobs, verbose)
@@ -248,6 +253,18 @@ def normalize_streams(train:np.ndarray,
                       ):
     """Inputs are 3D arrays of shape (N, T, d) where N is the number of time series, 
     T is the length of each time series, and d is the dimension of each time series."""
+
+    # Make time series length smaller for big datasets
+    N, T, d = train.shape
+    if T > 800:
+        time_skip = 4
+    elif T > 300:
+        time_skip = 2
+    else:
+        time_skip = 1
+    train = train[:, ::time_skip, :]
+    test = test[:, ::time_skip, :]
+
     # Normalize data by training set mean and std
     mean = np.mean(train, axis=0, keepdims=True)
     std = np.std(train, axis=0, keepdims=True)
@@ -279,7 +296,8 @@ def get_corpus_and_test(X_train:List[np.ndarray],
                         y_train:np.array, 
                         X_test:List[np.ndarray], 
                         class_to_test:int, 
-                        fixed_length:bool,):
+                        fixed_length:bool,
+                        ):
     # Get all samples of the current class
     idxs = np.where(y_train == class_to_test)[0]
     corpus = [X_train[k] for k in idxs]

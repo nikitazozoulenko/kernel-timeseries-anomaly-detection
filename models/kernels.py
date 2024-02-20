@@ -1,5 +1,5 @@
 import numpy as np
-from typing import List, Callable
+from typing import List, Callable, Optional, Any
 from numba import njit
 import numba as nb
 from joblib import Memory, Parallel, delayed
@@ -85,6 +85,7 @@ def linear_kernel_gram(X:np.ndarray,
                        Y:np.ndarray,
                        diag:bool = False,
                        divide_by_dims:bool = True,
+                       custom_factor:Optional[float] = None,
                        ):
     """Computes the Rd inner product matrix <x_i, y_j> or diagonal <x_i, y_i>.
     The inputs dimensions can only differ in the first axis.
@@ -94,6 +95,8 @@ def linear_kernel_gram(X:np.ndarray,
         Y (np.ndarray): Shape (N2, ... , d).
         diag (bool): If True, computes the diagonal of the gram matrix.
         divide_by_dims (bool): If True, divides the result by the dimension d.
+        custom_factor (Optional[float]): If not None, ignores 'divide_by_dims' and 
+                               multiplies the result by this factor instead.
 
     Returns:
         np.ndarray: Array of shape (N1, N2, ...) or (N1, ...) if diag=True.
@@ -106,10 +109,11 @@ def linear_kernel_gram(X:np.ndarray,
         #out_ij... = sum(X_i...k * Y_j...k)
         out = np.einsum('i...k,j...k -> ij...', X, Y)
     
-    if divide_by_dims:
+    if custom_factor is not None:
+        out = out * custom_factor
+    elif divide_by_dims:
         d = X.shape[-1]
         out = out/d
-
     return out
 
 
@@ -119,6 +123,7 @@ def rbf_kernel_gram(X:np.ndarray,
                     sigma:float,
                     diag:bool = False,
                     divide_by_dims:bool = True,
+                    custom_factor:Optional[float] = None,
                     ):
     """Computes the RBF gram matrix k(x_i, y_j) or diagonal k(x_i, y_i).
     The inputs dimensions can only differ in the first axis.
@@ -129,6 +134,8 @@ def rbf_kernel_gram(X:np.ndarray,
         sigma (float): RBF parameter
         diag (bool): If True, computes the diagonal of the gram matrix.
         divide_by_dims (bool): If True, normalizes the norm by the dimension d.
+        custom_factor (Optional[float]): If not None, ignores 'divide_by_dims' and 
+                               multiplies the result by this factor instead.
 
     Returns:
         np.ndarray: Array of shape (N1, N2, ...) or (N1, ...) if diag=True.
@@ -136,11 +143,12 @@ def rbf_kernel_gram(X:np.ndarray,
     if diag:
         diff = X-Y
         norms_squared = linear_kernel_gram(diff, diff, diag=True, 
-                                           divide_by_dims=divide_by_dims)
+                                           divide_by_dims=divide_by_dims,
+                                           custom_factor=custom_factor)
     else:
-        xx = linear_kernel_gram(X, X, diag=True, divide_by_dims=divide_by_dims)
-        xy = linear_kernel_gram(X, Y, diag=False, divide_by_dims=divide_by_dims)
-        yy = linear_kernel_gram(Y, Y, diag=True, divide_by_dims=divide_by_dims)
+        xx = linear_kernel_gram(X, X, diag=True, divide_by_dims=divide_by_dims, custom_factor=custom_factor)
+        xy = linear_kernel_gram(X, Y, diag=False, divide_by_dims=divide_by_dims, custom_factor=custom_factor)
+        yy = linear_kernel_gram(Y, Y, diag=True, divide_by_dims=divide_by_dims, custom_factor=custom_factor)
         norms_squared = -2*xy + xx[:, np.newaxis] + yy[np.newaxis, :] 
 
     d= X.shape[-1]
@@ -152,7 +160,8 @@ def poly_kernel_gram(X:np.ndarray,
                      Y:np.ndarray,
                      p:float, #eg 2 or 3
                      diag:bool = False,
-                     divide_by_dims:bool = True,):
+                     divide_by_dims:bool = True,
+                     custom_factor:Optional[float] = None,):
     """Computes the polynomial kernel (<x_i, y_j> + 1)^p.
     The inputs dimensions can only differ in the first axis.
     
@@ -162,12 +171,13 @@ def poly_kernel_gram(X:np.ndarray,
         p (float): Polynomial degree.
         diag (bool): If True, computes the diagonal of the gram matrix.
         divide_by_dims (bool): If True, normalizes the norm by the dimension d.
+        custom_factor (Optional[float]): If not None, ignores 'divide_by_dims' and
+                                 multiplies the result by this factor instead.
 
     Returns:
         np.ndarray: Array of shape (N1, N2, ...) or (N1, ...) if diag=True.
     """
-    d = X.shape[-1]
-    xy = linear_kernel_gram(X, Y, diag, divide_by_dims)
+    xy = linear_kernel_gram(X, Y, diag, divide_by_dims, custom_factor)
     return (xy + 1)**p
 
 

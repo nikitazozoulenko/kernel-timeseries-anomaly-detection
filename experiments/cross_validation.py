@@ -8,7 +8,8 @@ from tslearn.datasets import UCR_UEA_datasets
 import pickle
 import time
 
-from experiment_code import run_single_kernel_single_label, get_corpus_and_test, calc_grams
+from experiments.experiment_code import run_single_kernel_single_label, get_corpus_and_test
+from experiments.experiment_code import calc_grams, print_dataset_stats
 
 
 #######################################################################
@@ -103,15 +104,21 @@ def get_hyperparam_combinations(kernel_name:str):
 
 def get_hyperparam_ranges(kernel_name:str):
     """ Returns a dict of hyperparameter ranges for the specified kernel."""
-    max_poly_p = 5
+    max_poly_p = 4
     n_sigmas = 8
     ranges = {}
+    dyadic_order = 3
 
     #static kernel params. Note that sig and integral kernels also use this
     if "rbf" in kernel_name:
-        ranges["sigma"] = np.exp(np.linspace(-6, 1, n_sigmas))
+        ranges["sigma"] = np.exp(np.linspace(-5, 2, n_sigmas))
     elif "poly" in kernel_name:
         ranges["p"] = np.arange(2, max_poly_p+1)
+    elif "gak" in kernel_name:
+        ranges["gak_factor"] = np.array([0.333, 1, 3])
+
+    if "pde" in kernel_name:
+        ranges["dyadic_order"] = np.array([dyadic_order])
 
     return ranges
     
@@ -150,6 +157,7 @@ def eval_1_paramdict_1_fold(fold:tuple,
         _type_: _description_
     """
     X_train, y_train, X_val, y_val = fold
+    SVD_threshold = 10e-14
 
     # Simple case for most methods
     if "truncated sig" not in param_dict["kernel_name"]:
@@ -157,9 +165,9 @@ def eval_1_paramdict_1_fold(fold:tuple,
         aucs = np.zeros(min_fold_size)
         raw_aucs = run_single_kernel_single_label(X_train, y_train, X_val, y_val,
                             class_to_test, param_dict,
-                            fixed_length, verbose=False,
+                            fixed_length, verbose=verbose,
                             return_all_levels=True,
-                            SVD_threshold=0,
+                            SVD_threshold=SVD_threshold,
                             SVD_max_rank=min_fold_size,
                             n_jobs=n_jobs_gram,
                             )
@@ -171,7 +179,7 @@ def eval_1_paramdict_1_fold(fold:tuple,
 
         # Obtain grams once instead of MAX_ORDER times
         corpus, test = get_corpus_and_test(X_train, y_train, X_val, 
-                    class_to_test, fixed_length)
+                                    class_to_test, fixed_length)
         vv_grams, uv_grams = calc_grams(corpus, test, param_dict, fixed_length, 
                                         sig_kernel_only_last=False, n_jobs=n_jobs_gram,
                                         verbose=verbose)
@@ -183,9 +191,9 @@ def eval_1_paramdict_1_fold(fold:tuple,
             raw_aucs = run_single_kernel_single_label(X_train, 
                                 y_train, X_val, y_val,
                                 class_to_test, param_dict,
-                                fixed_length, verbose=False,
+                                fixed_length, verbose=verbose,
                                 return_all_levels=True,
-                                SVD_threshold=0,
+                                SVD_threshold=SVD_threshold,
                                 SVD_max_rank=min_fold_size,
                                 vv_gram=vv, uv_gram=uv, n_jobs=n_jobs_gram)
             aucs[:len(raw_aucs), idx] = aucs_to_objective(raw_aucs)
@@ -223,6 +231,7 @@ def eval_repeats_folds(kernel_name:str,
             for repeats in repeats_and_folds
             for fold in repeats
         )
+        #make shape consistent. Right now 
         scores.append(repeat_scores)
     
     #average across repeats and folds
@@ -304,7 +313,6 @@ def cv_given_dataset(X:List,                #Training Dataset
     return kernelwise_param_dicts
 
 
-
 def cv_tslearn(dataset_names:List[str], 
                 kernel_names:List[str],
                 k:int = 5,              #k-fold cross validation
@@ -324,6 +332,7 @@ def cv_tslearn(dataset_names:List[str],
         unique_labels = np.unique(y_train)
         num_classes = len(unique_labels)
         N_train, T, d = X_train.shape
+        print_dataset_stats(num_classes, d, T, N_train, "N/A")
 
         # Run each kernel
         t0 = time.time()
@@ -349,5 +358,48 @@ def cv_tslearn(dataset_names:List[str],
 
 
 if __name__ == "__main__":
-    #See scripts 'cv_tslearn' and 'cv_pendigits' for example usage
-    pass
+    import argparse
+    parser = argparse.ArgumentParser(description="Run this script to run cross validation on ts-learn datasets.")
+    parser.add_argument("--dataset_names", nargs="+", type=str, default=[
+            #'ArticularyWordRecognition', 
+            #'BasicMotions', 
+            ##########'ERing',      # cant find dataset
+            'Libras', 
+            #'NATOPS', 
+            #'RacketSports',     
+            #'FingerMovements',
+            #'Heartbeat',
+            #'SelfRegulationSCP1',  
+            #'UWaveGestureLibrary',
+            #'PenDigits',
+        ])
+    parser.add_argument("--kernel_names", nargs="+", type=str, default=[
+                "linear",
+                "rbf",
+                "gak",
+                "truncated sig",
+                "truncated sig rbf",
+                "signature pde",
+                "signature pde rbf",
+                "integral linear",
+                "integral rbf",
+                ])
+
+    parser.add_argument("--k", type=int, default=5)
+    parser.add_argument("--n_repeats", type=int, default=10)
+    parser.add_argument("--n_jobs_repeats", type=int, default=50)
+    parser.add_argument("--n_jobs_gram", type=int, default=1)
+
+    args = vars(parser.parse_args())
+    print(args)
+
+    cv_best_models = cv_tslearn(
+            dataset_names = args["dataset_names"],
+            kernel_names = args["kernel_names"],
+            k = args["k"],
+            n_repeats = args["n_repeats"],
+            n_jobs_repeats = args["n_jobs_repeats"],
+            n_jobs_gram = args["n_jobs_gram"],
+                )
+    
+    print(cv_best_models)

@@ -28,7 +28,7 @@ def stream_to_torch(
 class BaseclassConformanceScore():
     def __init__(self, 
                  inner_prod_Gram_matrix:np.array, 
-                 SVD_threshold:float = 0.01,
+                 SVD_threshold:float = 0.0001,
                  verbose:bool = True,
                  SVD_max_rank:Optional[int] = None,
                 ):
@@ -51,15 +51,21 @@ class BaseclassConformanceScore():
         a = np.mean(B, axis=0)
         b = np.mean(a)
         A = ( (B - np.expand_dims(a, axis=0)) - np.expand_dims(a, axis=1) + b) / N #<f_i, f_j>
+        print("mean <x_i, x_j> = ", np.mean(B))
+        print("mean absolute <x_i, x_j> = ", np.mean(np.abs(B)))
+        print("mean <f_i, f_j> = ", np.mean(A))
+        print("mean absolute <f_i, f_j> = ", np.mean(np.abs(A)), "\n")
 
         #SVD decomposition is equal to spectral decomposition
         U, S, Ut = np.linalg.svd( A )
         M = np.sum(S > SVD_threshold)
         M = max(M, 1)
-        M = min(M, SVD_max_rank) if SVD_max_rank is not None else M 
-        U, S = U[:, 0:M], S[0:M] #Shapes (N,M) and (M)
+        M = min(M, SVD_max_rank) if SVD_max_rank is not None else M
         if verbose:
-            print("Covariance operator numerical rank = {}".format(M))
+            print("Covariance operator eigenvalues =", S)
+            print("Covariance operator numerical rank =", M)
+        U, S = U[:, 0:M], S[0:M] #Shapes (N,M) and (M)
+
 
         #calculate matrix E_{i,m} = <x_i, e_m>,  (e_1, ... e_M) ONB of eigenvectors of covariance operator
         E =  (B-np.expand_dims(a, axis=1)) @ U / np.sqrt(N*S[None, :]) #shape (N,M)
