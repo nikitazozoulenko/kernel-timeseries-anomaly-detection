@@ -12,6 +12,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from experiments.experiment_code import run_single_kernel_single_label, get_corpus_and_test
 from experiments.experiment_code import calc_grams, print_dataset_stats
+from experiments.utils import save_to_pickle
 
 
 #######################################################################
@@ -120,7 +121,7 @@ def get_hyperparam_ranges(kernel_name:str):
         ranges["gak_factor"] = np.array([0.333, 1, 3])
 
     if "pde" in kernel_name:
-        ranges["dyadic_order"] = np.array([dyadic_order])
+        ranges["dyadic_order"] = np.array([dyadic_order], dtype=np.int64)
 
     return ranges
     
@@ -349,31 +350,75 @@ def cv_tslearn(dataset_names:List[str],
                                      "ts_length":T, 
                                      "N_train":N_train
                                      }
-    #save to disk
-    current_time = int(time.time()*1000)
-    with open(f"CV_tslearn_{current_time}.pkl", 'wb') as handle:
-        pickle.dump(cv_best_models, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     return cv_best_models
 
+
+#######################################################################
+######################### Print CV Results ############################
+#######################################################################
+
+
+def average_labels(labelwise_dict:Dict[str, Dict[str, Any]],
+                          field:str):
+    """Averages the values of a field over the labels."""
+    L = [param_dict[field] for param_dict in labelwise_dict.values()]
+    min_len = min([np.array(Li).size for Li in L])
+    if min_len > 1:
+        L = [Li[:min_len] for Li in L]
+    return np.mean(L,axis=0)
+
+
+def print_cv_results(
+        dataset_kernel_label_paramdict : Dict[str, Dict[str, Dict[str, Any]]],
+        ):
+    """Prints the results of cross validation on the tslearn datasets
+    given a dict of form {dataset_name : kernel_name : label : param_dict}"""
+    print("Cross Validation Results")
+    with np.printoptions(precision=3, suppress=True):
+        for dataset_name, results in dataset_kernel_label_paramdict.items():
+            print(dataset_name)
+            kernelwise_dict = results["kernel_results"]
+            print_dataset_stats(results['num_classes'], results['path dim'], 
+                                results['ts_length'], results['N_train'], "N/A")
+            
+            for kernel_name, labelwise_dict in kernelwise_dict.items():
+                final_auc_avgs = average_labels(labelwise_dict, "CV_train_auc")
+                params_auc_avgs = average_labels(labelwise_dict, "auc_params")
+                thresh_auc_avgs = average_labels(labelwise_dict, "auc_thresh")
+                print(f"\n{kernel_name}")
+                print("final_auc_avgs", final_auc_avgs)
+                print("params_auc_avgs", params_auc_avgs)
+                print("thresh_auc_avgs", thresh_auc_avgs)
+                if "truncated sig" in kernel_name:
+                    trunc_auc_avgs = average_labels(labelwise_dict, "auc_orders")
+                    print("orders_auc_avgs", trunc_auc_avgs)
+                
+                for label, param_dict in labelwise_dict.items():
+                    print(label)
+                    print({k:v for k,v in param_dict.items() 
+                           if k not in ["kernel_name", "normal_class_label", 
+                                        "CV_train_auc", "auc_params", "auc_thresh", 
+                                        "auc_orders"]})
+            print("\nEnd dataset \n\n\n")
 
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Run this script to run cross validation on ts-learn datasets.")
     parser.add_argument("--dataset_names", nargs="+", type=str, default=[
-        'ArticularyWordRecognition', 
+        #'ArticularyWordRecognition', 
         #'BasicMotions',                #skip for now, instabilities for sig linear due to exponentials (integer overflow)
-        'Libras',
+        #'Libras',
         'NATOPS',
-        'RacketSports',
-        'FingerMovements',
+        #'RacketSports',
+        #'FingerMovements',
         #'Heartbeat',                   #skip for now, instabilities for sig linear due to exponentials (integer overflow)
-        'SelfRegulationSCP1',  
-        'UWaveGestureLibrary',
-        'PenDigits',
-        'LSST',
-        'EthanolConcentration',
+        #'SelfRegulationSCP1',  
+        #'UWaveGestureLibrary',  
+        #'PenDigits',
+        #'LSST',
+        #'EthanolConcentration',
         ])
     parser.add_argument("--kernel_names", nargs="+", type=str, default=[
                 "linear",
@@ -382,20 +427,18 @@ if __name__ == "__main__":
                 "gak",
                 "truncated sig",
                 "truncated sig rbf",
-                "signature pde",
+                #"signature pde",     too unstable for 'BasicMotions' and 'Heartbeat'
                 "signature pde rbf",
                 "integral linear",
                 "integral rbf",
                 "integral poly",
                 ])
-
     parser.add_argument("--k", type=int, default=5)
     parser.add_argument("--n_repeats", type=int, default=1)
-    parser.add_argument("--n_jobs_repeats", type=int, default=1)
+    parser.add_argument("--n_jobs_repeats", type=int, default=5)
     parser.add_argument("--n_jobs_gram", type=int, default=1)
-
     args = vars(parser.parse_args())
-    print(args)
+    print("Args:", args)
 
     cv_best_models = cv_tslearn(
             dataset_names = args["dataset_names"],
@@ -406,4 +449,7 @@ if __name__ == "__main__":
             n_jobs_gram = args["n_jobs_gram"],
                 )
     
-    print(cv_best_models)
+    #save to disk
+    current_time = int(time.time()*1000)
+    save_to_pickle(cv_best_models, f"Data/cv_results_{current_time}.pkl")
+    print_cv_results(cv_best_models)

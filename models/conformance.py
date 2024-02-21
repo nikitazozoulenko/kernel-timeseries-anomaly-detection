@@ -51,10 +51,10 @@ class BaseclassConformanceScore():
         a = np.mean(B, axis=0)
         b = np.mean(a)
         A = ( (B - np.expand_dims(a, axis=0)) - np.expand_dims(a, axis=1) + b) / N #<f_i, f_j>
-        print("mean <x_i, x_j> = ", np.mean(B))
-        print("mean absolute <x_i, x_j> = ", np.mean(np.abs(B)))
-        print("mean <f_i, f_j> = ", np.mean(A))
-        print("mean absolute <f_i, f_j> = ", np.mean(np.abs(A)), "\n")
+        # print("mean <x_i, x_j> = ", np.mean(B))
+        # print("mean absolute <x_i, x_j> = ", np.mean(np.abs(B)))
+        # print("mean <f_i, f_j> = ", np.mean(A))
+        # print("mean absolute <f_i, f_j> = ", np.mean(np.abs(A)), "\n")
 
         #SVD decomposition is equal to spectral decomposition
         U, S, Ut = np.linalg.svd( A )

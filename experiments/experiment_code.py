@@ -126,7 +126,7 @@ def case_sig_pde(train:List[np.ndarray],
     """Calculates the signature kernel gram matrices of the train and test.
     Train and test are lists of possibly variable length multidimension 
     time series of shape (T_i, d)"""
-    sig_kernel = sigkernel.SigKernel(static_kernel, dyadic_order)
+    sig_kernel = sigkernel.SigKernel(static_kernel, int(dyadic_order) )
     kernel = lambda s1, s2 : sig_kernel.compute_kernel(
                                 stream_to_torch(s1), 
                                 stream_to_torch(s2)).numpy()[0]
