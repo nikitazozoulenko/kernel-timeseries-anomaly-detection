@@ -199,7 +199,7 @@ def calc_grams(train:List[np.ndarray],
     
     T, d = train[0].shape[-2:]
     if kernel_name == "truncated sig":
-        ker = lambda X, Y: linear_kernel_gram(X, Y) 
+        ker = lambda X, Y: linear_kernel_gram(X, Y)
         return case_truncated_sig(train, test, param_dict["order"], 
                                   ker, sig_kernel_only_last, 
                                   n_jobs, verbose)
@@ -256,7 +256,9 @@ def normalize_streams(train:np.ndarray,
 
     # Make time series length smaller for big datasets
     N, T, d = train.shape
-    if T > 800:
+    if T > 1600: # EthanolConcentration
+        time_skip = 10
+    elif T > 800: #SCP1
         time_skip = 4
     elif T > 300:
         time_skip = 2
@@ -270,6 +272,7 @@ def normalize_streams(train:np.ndarray,
     std = np.std(train, axis=0, keepdims=True)
     train = (train - mean) / std
     test = (test - mean) / std
+
     return train, test
 
 

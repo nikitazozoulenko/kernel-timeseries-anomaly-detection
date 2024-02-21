@@ -7,7 +7,9 @@ import tslearn.metrics
 from tslearn.datasets import UCR_UEA_datasets
 import pickle
 import time
-
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from experiments.experiment_code import run_single_kernel_single_label, get_corpus_and_test
 from experiments.experiment_code import calc_grams, print_dataset_stats
 
@@ -322,8 +324,6 @@ def cv_tslearn(dataset_names:List[str],
                 verbose:bool = False
                 ):    
     """Cross validation for tslearn datasets"""
-    current_time = int(time.time())
-
     cv_best_models = {} # dataset_name : kernel_name : label : param_dict
     for dataset_name in dataset_names:
         print("Dataset:", dataset_name)
@@ -350,6 +350,7 @@ def cv_tslearn(dataset_names:List[str],
                                      "N_train":N_train
                                      }
     #save to disk
+    current_time = int(time.time()*1000)
     with open(f"CV_tslearn_{current_time}.pkl", 'wb') as handle:
         pickle.dump(cv_best_models, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -361,21 +362,23 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Run this script to run cross validation on ts-learn datasets.")
     parser.add_argument("--dataset_names", nargs="+", type=str, default=[
-            #'ArticularyWordRecognition', 
-            #'BasicMotions', 
-            ##########'ERing',      # cant find dataset
-            'Libras', 
-            #'NATOPS', 
-            #'RacketSports',     
-            #'FingerMovements',
-            #'Heartbeat',
-            #'SelfRegulationSCP1',  
-            #'UWaveGestureLibrary',
-            #'PenDigits',
+        'ArticularyWordRecognition', 
+        #'BasicMotions',                #skip for now, instabilities for sig linear due to exponentials (integer overflow)
+        'Libras',
+        'NATOPS',
+        'RacketSports',
+        'FingerMovements',
+        #'Heartbeat',                   #skip for now, instabilities for sig linear due to exponentials (integer overflow)
+        'SelfRegulationSCP1',  
+        'UWaveGestureLibrary',
+        'PenDigits',
+        'LSST',
+        'EthanolConcentration',
         ])
     parser.add_argument("--kernel_names", nargs="+", type=str, default=[
                 "linear",
                 "rbf",
+                "poly",
                 "gak",
                 "truncated sig",
                 "truncated sig rbf",
@@ -383,11 +386,12 @@ if __name__ == "__main__":
                 "signature pde rbf",
                 "integral linear",
                 "integral rbf",
+                "integral poly",
                 ])
 
     parser.add_argument("--k", type=int, default=5)
-    parser.add_argument("--n_repeats", type=int, default=10)
-    parser.add_argument("--n_jobs_repeats", type=int, default=50)
+    parser.add_argument("--n_repeats", type=int, default=1)
+    parser.add_argument("--n_jobs_repeats", type=int, default=1)
     parser.add_argument("--n_jobs_gram", type=int, default=1)
 
     args = vars(parser.parse_args())
