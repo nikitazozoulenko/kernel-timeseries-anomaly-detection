@@ -146,12 +146,11 @@ def rbf_kernel_gram(X:np.ndarray,
                                            divide_by_dims=divide_by_dims,
                                            custom_factor=custom_factor)
     else:
-        xx = linear_kernel_gram(X, X, diag=True, divide_by_dims=divide_by_dims, custom_factor=custom_factor)
-        xy = linear_kernel_gram(X, Y, diag=False, divide_by_dims=divide_by_dims, custom_factor=custom_factor)
-        yy = linear_kernel_gram(Y, Y, diag=True, divide_by_dims=divide_by_dims, custom_factor=custom_factor)
+        xx = linear_kernel_gram(X, X, diag=True, divide_by_dims=divide_by_dims, custom_factor=custom_factor) #shape (N1, ...)
+        xy = linear_kernel_gram(X, Y, diag=False, divide_by_dims=divide_by_dims, custom_factor=custom_factor) #shape (N1, N2, ...)
+        yy = linear_kernel_gram(Y, Y, diag=True, divide_by_dims=divide_by_dims, custom_factor=custom_factor) #shape (N2, ...)
         norms_squared = -2*xy + xx[:, np.newaxis] + yy[np.newaxis, :] 
 
-    d= X.shape[-1]
     return np.exp(-sigma * norms_squared)
 
 

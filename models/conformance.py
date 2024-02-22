@@ -136,8 +136,8 @@ class BaseclassConformanceScore():
         N,M = self.U.shape
 
         # p_m = <y, e_m>
-        p = inner_prod_y_xn - np.mean(inner_prod_y_xn, axis=-1, keepdims=True)
-        p = (p @ self.U) / np.sqrt(N*self.S)
+        p = inner_prod_y_xn - np.mean(inner_prod_y_xn, axis=-1, keepdims=True) #shape (..., N)
+        p = (p @ self.U) / np.sqrt(N*self.S) #shape (..., M)
 
         if method == "conformance":
             return self._conformance_score(p, return_all_levels)
