@@ -204,8 +204,7 @@ def eval_1_paramdict_1_fold(fold:tuple,
                             fixed_length, SVD_threshold,
                             SVD_max_rank, verbose, vv, uv,
                             return_all_levels=return_all_levels,
-                            n_jobs=n_jobs_gram,
-                            n_jobs=n_jobs_gram)
+                            n_jobs=n_jobs_gram,)
             aucs[:len(raw_aucs), idx] = aucs_to_objective(raw_aucs)
 
     return aucs #auc shape (min_fold_size,) or (min_fold_size, n_truncs) for truncated sig
