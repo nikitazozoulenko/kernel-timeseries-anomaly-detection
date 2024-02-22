@@ -3,20 +3,20 @@ import sklearn.preprocessing
 import sklearn.utils
 import sklearn.metrics
 import torch
-#from tqdm import tqdm
+from tqdm import tqdm
 from typing import List, Optional, Dict, Set, Callable, Any
-#from joblib import Memory, Parallel, delayed
 import tslearn
 import tslearn.metrics
-from tslearn.datasets import UCR_UEA_datasets
 import sigkernel
 import sys
 import os
+import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from models.conformance import BaseclassConformanceScore, stream_to_torch
 from models.kernels import linear_kernel_gram, rbf_kernel_gram, poly_kernel_gram
 from models.kernels import pairwise_kernel_gram, integral_kernel_gram, sig_kernel_gram
+
 
 def print_dataset_stats(num_classes, d, T, N_train, N_test):
     print("Number of Classes:", num_classes)
@@ -277,6 +277,7 @@ def normalize_streams(train:np.ndarray,
     return train, test
 
 
+#divide by 1/distance
 def compute_aucs(distances_conf:np.ndarray,     #size N
                  distances_mahal:np.ndarray,    #size Nint
                  y_test:np.array,               #size N
@@ -286,14 +287,78 @@ def compute_aucs(distances_conf:np.ndarray,     #size N
 
     # Calculate one vs rest AUC, weighted by size of class
     for idx_conf_mahal, distances in enumerate([distances_conf, distances_mahal]):
-        ovr_labels = y_test != class_to_test
-        average="weighted" #average = "macro" or "weighted"
-        roc_auc = sklearn.metrics.roc_auc_score(ovr_labels, distances, average=average)
-        pr_auc = sklearn.metrics.average_precision_score(ovr_labels, distances, average=average)
+        
+        distances = 1/(distances+0.0001)
+        ovr_labels = y_test == class_to_test
+
+        # #TODO remove, testing random
+        # distances = np.random.rand(n_samples)
+
+        roc_auc = sklearn.metrics.roc_auc_score(ovr_labels, distances)
+        pr_auc = sklearn.metrics.average_precision_score(ovr_labels, distances)
+        ap = sklearn.metrics.average_precision_score(ovr_labels, distances)
         aucs[idx_conf_mahal, 0] = roc_auc
         aucs[idx_conf_mahal, 1] = pr_auc
     
     return aucs
+
+
+
+# def compute_aucs(distances_conf:np.ndarray,     #size N
+#                  distances_mahal:np.ndarray,    #size Nint
+#                  y_test:np.array,               #size N
+#                  class_to_test,):
+#     # 2 methods (conf, mahal), 2 metrics (roc_auc, pr_auc)
+#     aucs = np.zeros( (2, 2) ) 
+
+#     # Calculate one vs rest AUC, weighted by size of class
+#     for idx_conf_mahal, distances in enumerate([distances_conf, distances_mahal]):
+
+#         ovr_labels = y_test != class_to_test
+
+#         # #TODO remove, testing random
+#         # distances = np.random.rand(n_samples)
+
+#         roc_auc = sklearn.metrics.roc_auc_score(ovr_labels, distances)
+#         pr_auc = sklearn.metrics.average_precision_score(ovr_labels, distances)
+#         ap = sklearn.metrics.average_precision_score(ovr_labels, distances)
+#         aucs[idx_conf_mahal, 0] = roc_auc
+#         aucs[idx_conf_mahal, 1] = pr_auc
+    
+#     return aucs
+
+# def compute_aucs(distances_conf:np.ndarray,     #size N
+#                  distances_mahal:np.ndarray,    #size N
+#                  y_test:np.array,               #size N
+#                  class_to_test,):
+#     """Computes the averaged AUC scores given anomaly distances."""
+#     # Prepare indices of normal (and further down anomalous) samples
+#     other_labels = list(set(y_test))
+#     other_labels.remove(class_to_test)
+#     normal_indices = np.where(y_test == class_to_test)
+
+#     # 2 methods (conf, mahal), 2 metrics (roc_auc, pr_auc)
+#     aucs = np.zeros( (len(other_labels), 2, 2, ) )
+#     for i, anom_label in enumerate(other_labels):
+#         anom_indices = np.where(y_test == anom_label)
+#         indices = np.concatenate([normal_indices, anom_indices], axis=0)
+
+#         # Calculate one vs one AUCs
+#         for idx_conf_mahal, distances in enumerate([distances_conf[indices], 
+#                                                     distances_mahal[indices]]):
+#             # #TODO remove, testing random
+#             # print("distances", distances.shape, distances)
+#             # distances = np.random.rand(len(distances))
+
+#             # anomaly is positive class
+#             gt = (y_test[indices] != class_to_test) 
+#             roc_auc = sklearn.metrics.roc_auc_score(gt, distances)
+#             pr_auc = sklearn.metrics.average_precision_score(gt, distances)
+#             aucs[i, idx_conf_mahal, 0] = roc_auc
+#             aucs[i, idx_conf_mahal, 1] = pr_auc
+#             # print("roc_auc", roc_auc, "pr_auc", pr_auc)
+#     return np.mean(aucs, axis=0)
+
 
 
 def get_corpus_and_test(X_train:List[np.ndarray], 
@@ -384,9 +449,10 @@ def run_all_kernels(X_train:List[np.ndarray],
                     ):
     kernel_results = {}
     for kernel_name, labelwise_dict in kernelwise_dict.items():
+        print("Kernel:", kernel_name)
         # 2 methods (conf, mahal), 2 metrics (roc_auc, pr_auc), C classes
         aucs = np.zeros( (2, 2, len(unique_labels)) ) 
-        for i, (label, param_dict) in enumerate(labelwise_dict.items()):
+        for i, (label, param_dict) in enumerate(tqdm(labelwise_dict.items())):
             #run model
             scores = run_single_kernel_single_label(X_train, y_train, 
                                     X_test, y_test, label, param_dict,

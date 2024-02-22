@@ -133,8 +133,8 @@ def get_hyperparam_ranges(kernel_name:str):
 def aucs_to_objective(aucs:np.ndarray): #shape (M, 2, 2)
     """Takes AUCs from 'run_single_kernel_single_label' and outputs the
     objective for Cross Validation."""
+    aucs = np.sum(aucs, axis=2) # sum of ROC AUC and PR AUC
     aucs = np.max(aucs, axis=1) # max of conf and mahal
-    aucs = aucs[:, 0]           # only interested in roc (and not pr)
     return aucs #shape (M,)
 
 
@@ -443,6 +443,7 @@ if __name__ == "__main__":
     parser.add_argument("--n_repeats", type=int, default=1)
     parser.add_argument("--n_jobs_repeats", type=int, default=5)
     parser.add_argument("--n_jobs_gram", type=int, default=1)
+    parser.add_argument("--save_path", type=str, default=f"Data/cv_{int(time.time()*1000)}.pkl")
     args = vars(parser.parse_args())
     print("Args:", args)
 
@@ -456,6 +457,5 @@ if __name__ == "__main__":
                 )
     
     #save to disk
-    current_time = int(time.time()*1000)
-    save_to_pickle(cv_best_models, f"Data/cv_results_{current_time}.pkl")
+    save_to_pickle(cv_best_models, args["save_path"])
     print_cv_results(cv_best_models)

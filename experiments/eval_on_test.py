@@ -81,6 +81,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run this script to run cross validation on ts-learn datasets.")
     parser.add_argument("--cv_datasetwise_dict_paths", nargs="+", type=str, default=["Data/cv_results.pkl"])
     parser.add_argument("--n_jobs_gram", type=int, default=1)
+    parser.add_argument("--save_path", type=str, default=f"Data/eval_{int(time.time()*1000)}.pkl")
     args = vars(parser.parse_args())
     print("Args:", args)
 
@@ -99,6 +100,5 @@ if __name__ == "__main__":
                 )
 
     #save test results
-    current_time = int(time.time()*1000)
-    save_to_pickle(test_results, f"Data/test_results_{current_time}.pkl")
+    save_to_pickle(test_results, args["save_path"])
     print_test_results(test_results)
