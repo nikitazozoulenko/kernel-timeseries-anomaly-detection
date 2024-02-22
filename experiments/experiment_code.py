@@ -268,10 +268,11 @@ def normalize_streams(train:np.ndarray,
     test = test[:, ::time_skip, :]
 
     # Normalize data by training set mean and std
+    EPS = 10e-5
     mean = np.mean(train, axis=0, keepdims=True)
     std = np.std(train, axis=0, keepdims=True)
-    train = (train - mean) / std
-    test = (test - mean) / std
+    train = (train - mean) / (std+EPS)
+    test = (test - mean) / (std+EPS)
 
     return train, test
 
