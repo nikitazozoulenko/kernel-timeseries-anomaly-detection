@@ -266,19 +266,19 @@ def choose_best_hyperparam(scores:np.ndarray,
     #choose best param_dict
     final_param_dict = hyperparams[best_param_idx].copy()
     final_param_dict["threshold"] = 1 + best_thresh_idx
-    final_param_dict["CV_train_auc"] = max_params[best_param_idx]
+    final_param_dict["CV_train_score"] = max_params[best_param_idx]
     kernel_name = final_param_dict["kernel_name"]
 
     #store some extra stats
-    final_param_dict["auc_params"] = max_params
-    final_param_dict["auc_thresh"] = max_thresh
+    final_param_dict["score_params"] = max_params
+    final_param_dict["score_thresh"] = max_thresh
 
     #optional: best truncation level
     if "truncated sig" in kernel_name:
         max_truncs = np.max(scores, axis=(0, 1))
         best_trunc_idx = np.argmax(max_truncs)
         final_param_dict["order"] = 1+best_trunc_idx
-        final_param_dict["auc_orders"] = max_truncs
+        final_param_dict["score_orders"] = max_truncs
     
     return final_param_dict
 
@@ -389,23 +389,23 @@ def print_cv_results(
                                 results['ts_length'], results['N_train'], "N/A")
             
             for kernel_name, labelwise_dict in kernelwise_dict.items():
-                final_auc_avgs = average_labels(labelwise_dict, "CV_train_auc")
-                params_auc_avgs = average_labels(labelwise_dict, "auc_params")
-                thresh_auc_avgs = average_labels(labelwise_dict, "auc_thresh")
+                final_score_avgs = average_labels(labelwise_dict, "CV_train_score")
+                params_score_avgs = average_labels(labelwise_dict, "score_params")
+                thresh_score_avgs = average_labels(labelwise_dict, "score_thresh")
                 print(f"\n{kernel_name}")
-                print("final_auc_avgs", final_auc_avgs)
-                print("params_auc_avgs", params_auc_avgs)
-                print("thresh_auc_avgs", thresh_auc_avgs)
+                print("final_score_avgs", final_score_avgs)
+                print("params_score_avgs", params_score_avgs)
+                print("thresh_score_avgs", thresh_score_avgs)
                 if "truncated sig" in kernel_name:
-                    trunc_auc_avgs = average_labels(labelwise_dict, "auc_orders")
-                    print("orders_auc_avgs", trunc_auc_avgs)
+                    trunc_score_avgs = average_labels(labelwise_dict, "score_orders")
+                    print("orders_score_avgs", trunc_score_avgs)
                 
                 for label, param_dict in labelwise_dict.items():
                     print(label)
                     print({k:v for k,v in param_dict.items() 
                            if k not in ["kernel_name", "normal_class_label", 
-                                        "CV_train_auc", "auc_params", "auc_thresh", 
-                                        "auc_orders"]})
+                                        "CV_train_score", "score_params", "score_thresh", 
+                                        "score_orders"]})
             print("\nEnd dataset \n\n\n")
 
 
