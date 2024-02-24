@@ -36,11 +36,14 @@ def validate_tslearn(
 
         #validate on test set
         t0 = time.perf_counter()
-        kernelwise_dict = results["kernel_results"]
-        kernel_results = run_all_kernels(X_train, y_train, X_test, y_test, 
+        c_kernelwise_dict = results["conf_results"]
+        m_kernelwise_dict = results["mahal_results"]
+        conf_results, mahal_results = (run_all_kernels(X_train, y_train, X_test, y_test, 
                             unique_labels, kernelwise_dict, fixed_length=True, 
                             n_jobs=n_jobs, verbose=verbose)
-        experiments[dataset_name] = {"results": kernel_results, 
+                            for kernelwise_dict in [c_kernelwise_dict, m_kernelwise_dict])
+        experiments[dataset_name] = {"conf_results": conf_results, 
+                                     "mahal_results": mahal_results, 
                                      "num_classes": num_classes, 
                                      "path dim":d,
                                      "ts_length":T, 
@@ -63,11 +66,13 @@ def print_test_results(experiments, round_digits=3):
                             results["N_test"])
 
         #Results for each kernel:
-        for kernel_name, scores in results["results"].items():
+        for kernel_name, scores in results["conf_results"].items():
             print("\nKernel:", kernel_name)
             print("Conformance AUC:", round(scores[0, 0], round_digits))
-            print("Mahalanobis AUC:", round(scores[1, 0], round_digits))
             print("Conformance PR AUC:", round(scores[0, 1], round_digits))
+        for kernel_name, scores in results["mahal_results"].items():
+            print("\nKernel:", kernel_name)
+            print("Mahalanobis AUC:", round(scores[1, 0], round_digits))
             print("Mahalanobis PR AUC:", round(scores[1, 1], round_digits))
 
         print("\nEnd Dataset\n\n\n")

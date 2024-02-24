@@ -132,10 +132,9 @@ def get_hyperparam_ranges(kernel_name:str):
 
 def aucs_to_objective(aucs:np.ndarray): #shape (M, 2, 2)
     """Takes AUCs from 'run_single_kernel_single_label' and outputs the
-    objective for Cross Validation."""
+    objective for Cross Validation for both Conf and Mahal."""
     aucs = np.sum(aucs, axis=2) # sum of ROC AUC and PR AUC
-    aucs = np.max(aucs, axis=1) # max of conf and mahal
-    return aucs #shape (M,)
+    return aucs #shape (M, 2)
 
 
 
@@ -173,7 +172,7 @@ def eval_1_paramdict_1_fold(fold:tuple,
     # Simple case for most methods
     if "truncated sig" not in param_dict["kernel_name"]:
         # aucs shape (M, 2, 2), M <= min_fold_size
-        aucs = np.zeros(min_fold_size)
+        aucs = np.zeros( (min_fold_size, 2) )
         raw_aucs = run_single_kernel_single_label(X_train, y_train, X_val, y_val,
                             class_to_test, param_dict,
                             fixed_length, SVD_threshold,
@@ -195,7 +194,7 @@ def eval_1_paramdict_1_fold(fold:tuple,
                                         verbose=verbose)
         
         # Store aucs for each truncation level
-        aucs = np.zeros((min_fold_size, MAX_ORDER))
+        aucs = np.zeros((min_fold_size, 2, MAX_ORDER))
         for idx, (vv, uv) in enumerate(zip(vv_grams, uv_grams)):
 
             raw_aucs = run_single_kernel_single_label(X_train, 
@@ -207,7 +206,7 @@ def eval_1_paramdict_1_fold(fold:tuple,
                             n_jobs=n_jobs_gram,)
             aucs[:len(raw_aucs), idx] = aucs_to_objective(raw_aucs)
 
-    return aucs #auc shape (min_fold_size,) or (min_fold_size, n_truncs) for truncated sig
+    return aucs #auc shape (min_fold_size, 2) or (min_fold_size, 2, n_truncs) for truncated sig
 
 
 
@@ -240,47 +239,50 @@ def eval_repeats_folds(kernel_name:str,
             for repeats in repeats_and_folds
             for fold in repeats
         )
-        #make shape consistent. Right now 
+        #make shape consistent.
         scores.append(repeat_scores)
     
     #average across repeats and folds
     scores = np.array(scores)
     scores = np.mean(scores, axis=(1))
-    return scores #shape (n_hyperparams, min_fold_size, (opt. dim: n_truncs))
+    return scores #shape (n_hyperparams, min_fold_size, 2, (opt. dim: n_truncs))
 
 
 
-def choose_best_hyperparam(scores:np.ndarray,
+def choose_best_hyperparam(scores_conf_mahal:np.ndarray,
                            hyperparams:List[Dict[str, Any]],
                         ):
     """Chooses the best hyperparameter configuration based on the AUC 
     scores outputed from 'eval_repeats_folds'."""
-    
-    #scores shape (n_hyperparams, min_fold_size, (opt. dim: n_truncs))
-    dims = np.arange(scores.ndim) 
-    max_params = np.max(scores, axis=tuple(dims[1:]) )
-    best_param_idx = np.argmax(max_params)
-    max_thresh = np.max(scores, axis=(0, *dims[2:]))
-    best_thresh_idx = np.argmax(max_thresh)
+    c_m_param_dicts = [{}, {}]
+    for i in range(2):
+        #scores_conf_mahal shape (n_hyperparams, min_fold_size, 2, (opt. dim: n_truncs))
+        scores = scores_conf_mahal[:,:,i]
+        dims = np.arange(scores.ndim) 
+        max_params = np.max(scores, axis=tuple(dims[1:]) )
+        best_param_idx = np.argmax(max_params)
+        max_thresh = np.max(scores, axis=(0, *dims[2:]))
+        best_thresh_idx = np.argmax(max_thresh)
 
-    #choose best param_dict
-    final_param_dict = hyperparams[best_param_idx].copy()
-    final_param_dict["threshold"] = 1 + best_thresh_idx
-    final_param_dict["CV_train_score"] = max_params[best_param_idx]
-    kernel_name = final_param_dict["kernel_name"]
+        #choose best param_dict
+        final_param_dict = hyperparams[best_param_idx].copy()
+        final_param_dict["threshold"] = 1 + best_thresh_idx
+        final_param_dict["CV_train_score"] = max_params[best_param_idx]
+        kernel_name = final_param_dict["kernel_name"]
 
-    #store some extra stats
-    final_param_dict["score_params"] = max_params
-    final_param_dict["score_thresh"] = max_thresh
+        #store some extra stats
+        final_param_dict["score_params"] = max_params
+        final_param_dict["score_thresh"] = max_thresh
 
-    #optional: best truncation level
-    if "truncated sig" in kernel_name:
-        max_truncs = np.max(scores, axis=(0, 1))
-        best_trunc_idx = np.argmax(max_truncs)
-        final_param_dict["order"] = 1+best_trunc_idx
-        final_param_dict["score_orders"] = max_truncs
-    
-    return final_param_dict
+        #optional: best truncation level
+        if "truncated sig" in kernel_name:
+            max_truncs = np.max(scores, axis=(0, 1))
+            best_trunc_idx = np.argmax(max_truncs)
+            final_param_dict["order"] = 1+best_trunc_idx
+            final_param_dict["score_orders"] = max_truncs
+        c_m_param_dicts[i] = final_param_dict
+
+    return c_m_param_dicts
 
 
 
@@ -302,24 +304,29 @@ def cv_given_dataset(X:List,                #Training Dataset
 
     repeats_and_folds = repeat_k_folds(X, y, k, n_repeats)
 
-    kernelwise_param_dicts = {} # kernel : label : param_dict
+    #store for conf and mahal separately
+    c_kernelwise_param_dicts = {} # kernel : label : param_dict
+    m_kernelwise_param_dicts = {}
     for kernel_name in kernel_names:
         hyperparams = get_hyperparam_combinations(kernel_name)
 
         #loop over normal class
-        labelwise_param_dicts = {} # label : param_dict
+        c_labelwise_param_dicts = {} # label : param_dict
+        m_labelwise_param_dicts = {}
         t0 = time.time()
         for label in tqdm(unique_labels, desc = f"Label for {kernel_name}"):
             scores = eval_repeats_folds(kernel_name, repeats_and_folds,
                                         hyperparams, label, fixed_length,
                                         n_jobs_repeats, n_jobs_gram, verbose)
-            final_param_dict = choose_best_hyperparam(scores, hyperparams)
-            labelwise_param_dicts[label] = final_param_dict
-        kernelwise_param_dicts[kernel_name] = labelwise_param_dicts
+            c_param_dict, m_param_dict = choose_best_hyperparam(scores, hyperparams)
+            c_labelwise_param_dicts[label] = c_param_dict
+            m_labelwise_param_dicts[label] = m_param_dict
+        c_kernelwise_param_dicts[kernel_name] = c_labelwise_param_dicts
+        m_kernelwise_param_dicts[kernel_name] = m_labelwise_param_dicts
 
         t1 = time.time()
         print(f"Time taken for kernel {kernel_name}:", t1-t0, "seconds")
-    return kernelwise_param_dicts
+    return c_kernelwise_param_dicts, m_kernelwise_param_dicts
 
 
 def cv_tslearn(dataset_names:List[str], 
@@ -343,18 +350,21 @@ def cv_tslearn(dataset_names:List[str],
 
         # Run each kernel
         t0 = time.time()
-        kernelwise_param_dicts = cv_given_dataset(X_train, y_train, unique_labels, 
+        c_kernelwise_param_dicts, m_kernelwise_param_dicts = cv_given_dataset(
+                                                X_train, y_train, unique_labels, 
                                                 kernel_names, True, k, n_repeats, #fixed_length = True
                                                 n_jobs_repeats, n_jobs_gram, verbose)
         t1 = time.time()
         print(f"Time taken for dataset {dataset_name}:", t1-t0, "seconds\n\n\n")
         
         #log dataset experiment
-        cv_best_models[dataset_name] = {"kernel_results": kernelwise_param_dicts, 
-                                     "num_classes": num_classes, 
-                                     "path dim":d,
-                                     "ts_length":T, 
-                                     "N_train":N_train
+        cv_best_models[dataset_name] = {
+                                    "conf_results": c_kernelwise_param_dicts,
+                                    "mahal_results": m_kernelwise_param_dicts, 
+                                    "num_classes": num_classes, 
+                                    "path dim":d,
+                                    "ts_length":T, 
+                                    "N_train":N_train
                                      }
 
     return cv_best_models
@@ -383,48 +393,49 @@ def print_cv_results(
     print("Cross Validation Results")
     with np.printoptions(precision=3, suppress=True):
         for dataset_name, results in dataset_kernel_label_paramdict.items():
-            print(dataset_name)
-            kernelwise_dict = results["kernel_results"]
             print_dataset_stats(results['num_classes'], results['path dim'], 
                                 results['ts_length'], results['N_train'], "N/A")
-            
-            for kernel_name, labelwise_dict in kernelwise_dict.items():
-                final_score_avgs = average_labels(labelwise_dict, "CV_train_score")
-                params_score_avgs = average_labels(labelwise_dict, "score_params")
-                thresh_score_avgs = average_labels(labelwise_dict, "score_thresh")
-                print(f"\n{kernel_name}")
-                print("final_score_avgs", final_score_avgs)
-                print("params_score_avgs", params_score_avgs)
-                print("thresh_score_avgs", thresh_score_avgs)
-                if "truncated sig" in kernel_name:
-                    trunc_score_avgs = average_labels(labelwise_dict, "score_orders")
-                    print("orders_score_avgs", trunc_score_avgs)
-                
-                for label, param_dict in labelwise_dict.items():
-                    print(label)
-                    print({k:v for k,v in param_dict.items() 
-                           if k not in ["kernel_name", "normal_class_label", 
-                                        "CV_train_score", "score_params", "score_thresh", 
-                                        "score_orders"]})
+            for anomaly_method in ["conf_results", "mahal_results"]:
+                print(f"\n{anomaly_method}")
+                kernelwise_dict = results[anomaly_method]
+                for kernel_name, labelwise_dict in kernelwise_dict.items():
+                    final_score_avgs = average_labels(labelwise_dict, "CV_train_score")
+                    params_score_avgs = average_labels(labelwise_dict, "score_params")
+                    thresh_score_avgs = average_labels(labelwise_dict, "score_thresh")
+                    print(f"\n{kernel_name}")
+                    print("final_score_avgs", final_score_avgs)
+                    print("params_score_avgs", params_score_avgs)
+                    print("thresh_score_avgs", thresh_score_avgs)
+                    if "truncated sig" in kernel_name:
+                        trunc_score_avgs = average_labels(labelwise_dict, "score_orders")
+                        print("orders_score_avgs", trunc_score_avgs)
+                    
+                    for label, param_dict in labelwise_dict.items():
+                        print(label)
+                        print({k:v for k,v in param_dict.items() 
+                            if k not in ["kernel_name", "normal_class_label", 
+                                            "CV_train_score", "score_params", "score_thresh", 
+                                            "score_orders"]})
             print("\nEnd dataset \n\n\n")
+            
 
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Run this script to run cross validation on ts-learn datasets.")
     parser.add_argument("--dataset_names", nargs="+", type=str, default=[
-        #'ArticularyWordRecognition', 
-        #'BasicMotions',
-        #'Libras',
-        'NATOPS',
-        #'RacketSports',
-        #'FingerMovements',
-        #'Heartbeat',
-        #'SelfRegulationSCP1',  
-        #'UWaveGestureLibrary',  
-        #'PenDigits',
-        #'LSST',
-        #'EthanolConcentration',
+        #'ArticularyWordRecognition',   # N_corpus = 11
+        #'BasicMotions',                # N_corpus = 10
+        #'Libras',                      # N_corpus = 12
+        'NATOPS',                       # N_corpus = 30
+        #'RacketSports',                # N_corpus = 38
+        #'FingerMovements',             # N_corpus = 158
+        #'Heartbeat',                   # N_corpus = 102
+        #'SelfRegulationSCP1',          # N_corpus = 134
+        #'UWaveGestureLibrary',         # N_corpus = 15
+        #'PenDigits',                   # N_corpus = 749
+        #'LSST',                        # N_corpus = 176
+        #'EthanolConcentration',        # N_corpus = 65
         ])
     parser.add_argument("--kernel_names", nargs="+", type=str, default=[
                 "linear",
@@ -458,3 +469,21 @@ if __name__ == "__main__":
     #save to disk
     save_to_pickle(cv_best_models, args["save_path"])
     print_cv_results(cv_best_models)
+
+
+
+#if i want good data, then i should  probably look at N_corpus>30
+# Epilepsy 34
+# EthanolConcentration 65
+# FaceDetection 2945
+# FingerMovements 158
+# HandMovementDirection 40
+# Heartbeat 102
+# LSST 176
+# MotorImagery 139       # TOO LONG LENGTH
+# NATOPS 30
+# PenDigits 749
+# PEMS-SF 38
+# PhonemeSpectra 85
+# RacketSports 38
+# SelfRegulationSCP1 134

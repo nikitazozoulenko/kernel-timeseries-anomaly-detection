@@ -248,38 +248,48 @@ def calc_grams(train:List[np.ndarray],
         raise ValueError("Invalid kernel name:", kernel_name)
 
 
+
+def avg_pool_time(X:np.ndarray,
+                  pool_size:int = 1):
+    """X is array of shape (N, T, d)"""
+    N, T, d = X.shape
+    new_T = T // pool_size
+    reshaped = X[:, :new_T*pool_size, :].reshape(N, new_T, pool_size, d)
+    return np.mean(reshaped, axis=2)
+
+
 def normalize_streams(train:np.ndarray, 
                       test:np.ndarray,
+                      max_T:int = 105
                       ):
     """Inputs are 3D arrays of shape (N, T, d) where N is the number of time series, 
-    T is the length of each time series, and d is the dimension of each time series."""
+    T is the length of each time series, and d is the dimension of each time series.
+    Performs average pooling to reduce the length of the time series to at most max_T"""
 
     # Make time series length smaller for big datasets
-    N, T, d = train.shape
-    if T > 1600: # EthanolConcentration
-        time_skip = 10
-    elif T > 800: #SCP1
-        time_skip = 4
-    elif T > 300:
-        time_skip = 2
-    else:
-        time_skip = 1
-    train = train[:, ::time_skip, :]
-    test = test[:, ::time_skip, :]
+    _, T, d = train.shape
+    if T > max_T:
+        pool_size = 1 + (T-1) // max_T
+        train = avg_pool_time(train, pool_size)
+        test = avg_pool_time(test, pool_size)
 
     # Normalize data by training set mean and std
-    EPS = 10e-5
+    EPS = 0.0001 
     mean = np.mean(train, axis=0, keepdims=True)
     std = np.std(train, axis=0, keepdims=True)
     train = (train - mean) / (std+EPS)
     test = (test - mean) / (std+EPS)
 
+    #clip to avoid numerical instability for poly and sigs
+    train = np.clip(train, -5, 5)
+    test = np.clip(test, -5, 5)
     return train, test
+
 
 
 #divide by 1/distance
 def compute_aucs(distances_conf:np.ndarray,     #size N
-                 distances_mahal:np.ndarray,    #size Nint
+                 distances_mahal:np.ndarray,    #size N
                  y_test:np.array,               #size N
                  class_to_test,):
     # 2 methods (conf, mahal), 2 metrics (roc_auc, pr_auc)
@@ -288,11 +298,9 @@ def compute_aucs(distances_conf:np.ndarray,     #size N
     # Calculate one vs rest AUC, weighted by size of class
     for idx_conf_mahal, distances in enumerate([distances_conf, distances_mahal]):
         
-        distances = 1/(distances+0.0001)
+        #PR AUC requires minority class to be label 1.
+        distances = 1/(distances+0.001)
         ovr_labels = y_test == class_to_test
-
-        # #TODO remove, testing random
-        # distances = np.random.rand(n_samples)
 
         roc_auc = sklearn.metrics.roc_auc_score(ovr_labels, distances)
         pr_auc = sklearn.metrics.average_precision_score(ovr_labels, distances)
@@ -301,64 +309,6 @@ def compute_aucs(distances_conf:np.ndarray,     #size N
         aucs[idx_conf_mahal, 1] = pr_auc
     
     return aucs
-
-
-
-# def compute_aucs(distances_conf:np.ndarray,     #size N
-#                  distances_mahal:np.ndarray,    #size Nint
-#                  y_test:np.array,               #size N
-#                  class_to_test,):
-#     # 2 methods (conf, mahal), 2 metrics (roc_auc, pr_auc)
-#     aucs = np.zeros( (2, 2) ) 
-
-#     # Calculate one vs rest AUC, weighted by size of class
-#     for idx_conf_mahal, distances in enumerate([distances_conf, distances_mahal]):
-
-#         ovr_labels = y_test != class_to_test
-
-#         # #TODO remove, testing random
-#         # distances = np.random.rand(n_samples)
-
-#         roc_auc = sklearn.metrics.roc_auc_score(ovr_labels, distances)
-#         pr_auc = sklearn.metrics.average_precision_score(ovr_labels, distances)
-#         ap = sklearn.metrics.average_precision_score(ovr_labels, distances)
-#         aucs[idx_conf_mahal, 0] = roc_auc
-#         aucs[idx_conf_mahal, 1] = pr_auc
-    
-#     return aucs
-
-# def compute_aucs(distances_conf:np.ndarray,     #size N
-#                  distances_mahal:np.ndarray,    #size N
-#                  y_test:np.array,               #size N
-#                  class_to_test,):
-#     """Computes the averaged AUC scores given anomaly distances."""
-#     # Prepare indices of normal (and further down anomalous) samples
-#     other_labels = list(set(y_test))
-#     other_labels.remove(class_to_test)
-#     normal_indices = np.where(y_test == class_to_test)
-
-#     # 2 methods (conf, mahal), 2 metrics (roc_auc, pr_auc)
-#     aucs = np.zeros( (len(other_labels), 2, 2, ) )
-#     for i, anom_label in enumerate(other_labels):
-#         anom_indices = np.where(y_test == anom_label)
-#         indices = np.concatenate([normal_indices, anom_indices], axis=0)
-
-#         # Calculate one vs one AUCs
-#         for idx_conf_mahal, distances in enumerate([distances_conf[indices], 
-#                                                     distances_mahal[indices]]):
-#             # #TODO remove, testing random
-#             # print("distances", distances.shape, distances)
-#             # distances = np.random.rand(len(distances))
-
-#             # anomaly is positive class
-#             gt = (y_test[indices] != class_to_test) 
-#             roc_auc = sklearn.metrics.roc_auc_score(gt, distances)
-#             pr_auc = sklearn.metrics.average_precision_score(gt, distances)
-#             aucs[i, idx_conf_mahal, 0] = roc_auc
-#             aucs[i, idx_conf_mahal, 1] = pr_auc
-#             # print("roc_auc", roc_auc, "pr_auc", pr_auc)
-#     return np.mean(aucs, axis=0)
-
 
 
 def get_corpus_and_test(X_train:List[np.ndarray], 
