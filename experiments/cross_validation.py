@@ -414,12 +414,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run this script to run cross validation on ts-learn datasets.")
     parser.add_argument("--dataset_names", nargs="+", type=str, default=[
         #'ArticularyWordRecognition', 
-        #'BasicMotions',                #skip for now, instabilities for sig linear due to exponentials (integer overflow)
+        #'BasicMotions',
         #'Libras',
         'NATOPS',
         #'RacketSports',
         #'FingerMovements',
-        #'Heartbeat',                   #skip for now, instabilities for sig linear due to exponentials (integer overflow)
+        #'Heartbeat',
         #'SelfRegulationSCP1',  
         #'UWaveGestureLibrary',  
         #'PenDigits',

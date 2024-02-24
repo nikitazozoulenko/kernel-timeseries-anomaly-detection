@@ -10,7 +10,7 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from experiments.experiment_code import run_all_kernels, print_dataset_stats
-from experiments.utils import save_to_pickle, load_from_pickle
+from experiments.utils import save_to_pickle, join_dicts_from_pickle_paths
 from experiments.cross_validation import print_cv_results
 
 
@@ -74,7 +74,7 @@ def print_test_results(experiments, round_digits=3):
 
 
 
-#python3 experiments/eval_on_test.py --cv_datasetwise_dict_paths "Data/cv_results_Heart.pkl" "Data/cv_results_UWave_BM.pkl" --n_jobs_gram 4
+# python3 experiments/eval_on_test.py --cv_datasetwise_dict_paths "Data/cv_ArticularyWordRecognition.pkl" "Data/cv_BasicMotions.pkl" "Data/cv_EthanolConcentration.pkl" "Data/cv_FingerMovements.pkl" "Data/cv_Heartbeat.pkl" "Data/cv_Libras.pkl" "Data/cv_NATOPS.pkl" "Data/cv_RacketSports.pkl" "Data/cv_SelfRegulationSCP1.pkl" "Data/cv_UWaveGestureLibrary.pkl" --n_jobs_gram 150 --save_path "Data/results_shorts.pkl"
 if __name__ == "__main__":
     # Parse command line arguments
     import argparse
@@ -86,11 +86,7 @@ if __name__ == "__main__":
     print("Args:", args)
 
     # Load the cross validation results
-    dicts = [load_from_pickle(path)
-             for path in args["cv_datasetwise_dict_paths"]]
-    dataset_kernel_label_paramdict = {}
-    for d in dicts:
-        dataset_kernel_label_paramdict.update(d)
+    dataset_kernel_label_paramdict = join_dicts_from_pickle_paths(args["cv_datasetwise_dict_paths"])
     print_cv_results(dataset_kernel_label_paramdict)
 
     #run test
