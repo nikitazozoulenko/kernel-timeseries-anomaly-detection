@@ -331,8 +331,8 @@ def cv_given_dataset(X:List,                #Training Dataset
 
 def cv_tslearn(dataset_names:List[str], 
                 kernel_names:List[str],
-                k:int = 5,              #k-fold cross validation
-                n_repeats:int = 10,      #repeats of k-fold CV)
+                k:int = 5,                  # k-fold cross validation
+                n_repeats:int = 10,         # repeats of k-fold CV)
                 n_jobs_repeats:int = 1,
                 n_jobs_gram:int = 1,
                 verbose:bool = False

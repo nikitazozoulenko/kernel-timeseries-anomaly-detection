@@ -260,18 +260,11 @@ def avg_pool_time(X:np.ndarray,
 
 def normalize_streams(train:np.ndarray, 
                       test:np.ndarray,
-                      max_T:int = 105
+                      max_T:int = 70
                       ):
     """Inputs are 3D arrays of shape (N, T, d) where N is the number of time series, 
     T is the length of each time series, and d is the dimension of each time series.
     Performs average pooling to reduce the length of the time series to at most max_T"""
-
-    # Make time series length smaller for big datasets
-    _, T, d = train.shape
-    if T > max_T:
-        pool_size = 1 + (T-1) // max_T
-        train = avg_pool_time(train, pool_size)
-        test = avg_pool_time(test, pool_size)
 
     # Normalize data by training set mean and std
     EPS = 0.0001 
@@ -283,6 +276,13 @@ def normalize_streams(train:np.ndarray,
     #clip to avoid numerical instability for poly and sigs
     train = np.clip(train, -5, 5)
     test = np.clip(test, -5, 5)
+
+    # Make time series length smaller
+    _, T, d = train.shape
+    if T > max_T:
+        pool_size = 1 + (T-1) // max_T
+        train = avg_pool_time(train, pool_size)
+        test = avg_pool_time(test, pool_size)
     return train, test
 
 
