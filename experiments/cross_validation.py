@@ -163,12 +163,6 @@ def eval_1_paramdict_1_fold(fold:tuple,
     SVD_max_rank = min(min_fold_size, 30)
     return_all_levels = True
 
-
-    class_to_test, param_dict, fixed_length, SVD_threshold, SVD_max_rank, verbose
-
-
-
-
     # Simple case for most methods
     if "truncated sig" not in param_dict["kernel_name"]:
         # aucs shape (M, 2, 2), M <= min_fold_size
@@ -204,7 +198,7 @@ def eval_1_paramdict_1_fold(fold:tuple,
                             SVD_max_rank, verbose, vv, uv,
                             return_all_levels=return_all_levels,
                             n_jobs=n_jobs_gram,)
-            aucs[:len(raw_aucs), idx] = aucs_to_objective(raw_aucs)
+            aucs[:len(raw_aucs), :, idx] = aucs_to_objective(raw_aucs)
 
     return aucs #auc shape (min_fold_size, 2) or (min_fold_size, 2, n_truncs) for truncated sig
 
@@ -424,15 +418,14 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Run this script to run cross validation on ts-learn datasets.")
     parser.add_argument("--dataset_names", nargs="+", type=str, default=[
-        'Epilepsy',                    # N_corpus = 34      #I should probably further limit this to >100
+        'Epilepsy',                    # N_corpus = 34      #I should probably further limit this to 100 < N_corpus < 1000
         'EthanolConcentration',        # N_corpus = 65
-        'FaceDetection',                # N_corpus = 2945
         'FingerMovements',             # N_corpus = 158
         'HandMovementDirection',       # N_corpus = 40
         'Heartbeat',                   # N_corpus = 102
         'LSST',                        # N_corpus = 176
         'MotorImagery',                # N_corpus = 139
-        'NATOPS',                       # N_corpus = 30
+        'NATOPS',                      # N_corpus = 30
         'PenDigits',                   # N_corpus = 749
         'PEMS-SF',                     # N_corpus = 38
         'PhonemeSpectra',              # N_corpus = 85
