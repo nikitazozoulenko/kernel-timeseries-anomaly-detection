@@ -424,18 +424,20 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Run this script to run cross validation on ts-learn datasets.")
     parser.add_argument("--dataset_names", nargs="+", type=str, default=[
-        #'ArticularyWordRecognition',   # N_corpus = 11
-        #'BasicMotions',                # N_corpus = 10
-        #'Libras',                      # N_corpus = 12
+        'Epilepsy',                    # N_corpus = 34      #I should probably further limit this to >100
+        'EthanolConcentration',        # N_corpus = 65
+        'FaceDetection',                # N_corpus = 2945
+        'FingerMovements',             # N_corpus = 158
+        'HandMovementDirection',       # N_corpus = 40
+        'Heartbeat',                   # N_corpus = 102
+        'LSST',                        # N_corpus = 176
+        'MotorImagery',                # N_corpus = 139
         'NATOPS',                       # N_corpus = 30
-        #'RacketSports',                # N_corpus = 38
-        #'FingerMovements',             # N_corpus = 158
-        #'Heartbeat',                   # N_corpus = 102
-        #'SelfRegulationSCP1',          # N_corpus = 134
-        #'UWaveGestureLibrary',         # N_corpus = 15
-        #'PenDigits',                   # N_corpus = 749
-        #'LSST',                        # N_corpus = 176
-        #'EthanolConcentration',        # N_corpus = 65
+        'PenDigits',                   # N_corpus = 749
+        'PEMS-SF',                     # N_corpus = 38
+        'PhonemeSpectra',              # N_corpus = 85
+        'RacketSports',                # N_corpus = 38
+        'SelfRegulationSCP1',          # N_corpus = 134
         ])
     parser.add_argument("--kernel_names", nargs="+", type=str, default=[
                 "linear",
@@ -445,7 +447,6 @@ if __name__ == "__main__":
                 "truncated sig",
                 "truncated sig rbf",
                 "signature pde rbf",
-                "integral linear",
                 "integral rbf",
                 "integral poly",
                 ])
@@ -469,21 +470,3 @@ if __name__ == "__main__":
     #save to disk
     save_to_pickle(cv_best_models, args["save_path"])
     print_cv_results(cv_best_models)
-
-
-
-#if i want good data, then i should  probably look at N_corpus>30
-# Epilepsy 34
-# EthanolConcentration 65
-# FaceDetection 2945
-# FingerMovements 158
-# HandMovementDirection 40
-# Heartbeat 102
-# LSST 176
-# MotorImagery 139       # TOO LONG LENGTH
-# NATOPS 30
-# PenDigits 749
-# PEMS-SF 38
-# PhonemeSpectra 85
-# RacketSports 38
-# SelfRegulationSCP1 134
