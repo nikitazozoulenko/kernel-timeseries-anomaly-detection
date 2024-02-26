@@ -92,7 +92,6 @@ if __name__ == "__main__":
 
     # Load the cross validation results
     dataset_kernel_label_paramdict = join_dicts_from_pickle_paths(args["cv_datasetwise_dict_paths"])
-    print_cv_results(dataset_kernel_label_paramdict)
 
     #run test
     test_results = validate_tslearn(

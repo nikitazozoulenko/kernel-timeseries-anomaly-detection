@@ -402,7 +402,7 @@ def run_all_kernels(X_train:List[np.ndarray],
         print("Kernel:", kernel_name)
         # 2 methods (conf, mahal), 2 metrics (roc_auc, pr_auc), C classes
         aucs = np.zeros( (2, 2, len(unique_labels)) ) 
-        for i, (label, param_dict) in enumerate(tqdm(labelwise_dict.items())):
+        for i, (label, param_dict) in enumerate(labelwise_dict.items()):
             #run model
             scores = run_single_kernel_single_label(X_train, y_train, 
                                     X_test, y_test, label, param_dict,
