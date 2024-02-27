@@ -436,12 +436,12 @@ if __name__ == "__main__":
                 "linear",
                 "rbf",
                 "poly",
-                "gak",
+                "integral rbf",
+                "integral poly",
                 "truncated sig",
                 "truncated sig rbf",
                 "signature pde rbf",
-                "integral rbf",
-                "integral poly",
+                "gak",
                 ])
     parser.add_argument("--k", type=int, default=5)
     parser.add_argument("--n_repeats", type=int, default=1)

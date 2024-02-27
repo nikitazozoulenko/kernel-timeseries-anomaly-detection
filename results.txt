@@ -1,0 +1,832 @@
+Test Results
+
+Dataset: Epilepsy
+Number of Classes: 4
+Dimension of path: 3
+Length: 206
+Train: 137
+Test: 138
+
+Kernel: linear
+Conformance AUC: 0.921
+Conformance PR AUC: 0.811
+
+Kernel: rbf
+Conformance AUC: 0.909
+Conformance PR AUC: 0.735
+
+Kernel: poly
+Conformance AUC: 0.892
+Conformance PR AUC: 0.729
+
+Kernel: gak
+Conformance AUC: 0.925
+Conformance PR AUC: 0.843
+
+Kernel: truncated sig
+Conformance AUC: 0.703
+Conformance PR AUC: 0.413
+
+Kernel: truncated sig rbf
+Conformance AUC: 0.789
+Conformance PR AUC: 0.63
+
+Kernel: signature pde rbf
+Conformance AUC: 0.65
+Conformance PR AUC: 0.55
+
+Kernel: integral rbf
+Conformance AUC: 0.917
+Conformance PR AUC: 0.777
+
+Kernel: integral poly
+Conformance AUC: 0.902
+Conformance PR AUC: 0.718
+
+Kernel: linear
+Mahalanobis AUC: 0.794
+Mahalanobis PR AUC: 0.57
+
+Kernel: rbf
+Mahalanobis AUC: 0.803
+Mahalanobis PR AUC: 0.591
+
+Kernel: poly
+Mahalanobis AUC: 0.76
+Mahalanobis PR AUC: 0.524
+
+Kernel: gak
+Mahalanobis AUC: 0.879
+Mahalanobis PR AUC: 0.755
+
+Kernel: truncated sig
+Mahalanobis AUC: 0.753
+Mahalanobis PR AUC: 0.555
+
+Kernel: truncated sig rbf
+Mahalanobis AUC: 0.715
+Mahalanobis PR AUC: 0.652
+
+Kernel: signature pde rbf
+Mahalanobis AUC: 0.625
+Mahalanobis PR AUC: 0.503
+
+Kernel: integral rbf
+Mahalanobis AUC: 0.81
+Mahalanobis PR AUC: 0.573
+
+Kernel: integral poly
+Mahalanobis AUC: 0.779
+Mahalanobis PR AUC: 0.567
+
+End Dataset
+
+
+
+Dataset: EthanolConcentration
+Number of Classes: 4
+Dimension of path: 3
+Length: 1751
+Train: 261
+Test: 263
+
+Kernel: linear
+Conformance AUC: 0.549
+Conformance PR AUC: 0.277
+
+Kernel: rbf
+Conformance AUC: 0.563
+Conformance PR AUC: 0.277
+
+Kernel: poly
+Conformance AUC: 0.553
+Conformance PR AUC: 0.278
+
+Kernel: gak
+Conformance AUC: 0.565
+Conformance PR AUC: 0.301
+
+Kernel: truncated sig
+Conformance AUC: 0.543
+Conformance PR AUC: 0.287
+
+Kernel: truncated sig rbf
+Conformance AUC: 0.579
+Conformance PR AUC: 0.327
+
+Kernel: signature pde rbf
+Conformance AUC: 0.56
+Conformance PR AUC: 0.294
+
+Kernel: integral rbf
+Conformance AUC: 0.546
+Conformance PR AUC: 0.281
+
+Kernel: integral poly
+Conformance AUC: 0.555
+Conformance PR AUC: 0.289
+
+Kernel: linear
+Mahalanobis AUC: 0.53
+Mahalanobis PR AUC: 0.278
+
+Kernel: rbf
+Mahalanobis AUC: 0.56
+Mahalanobis PR AUC: 0.309
+
+Kernel: poly
+Mahalanobis AUC: 0.547
+Mahalanobis PR AUC: 0.308
+
+Kernel: gak
+Mahalanobis AUC: 0.572
+Mahalanobis PR AUC: 0.318
+
+Kernel: truncated sig
+Mahalanobis AUC: 0.549
+Mahalanobis PR AUC: 0.296
+
+Kernel: truncated sig rbf
+Mahalanobis AUC: 0.534
+Mahalanobis PR AUC: 0.278
+
+Kernel: signature pde rbf
+Mahalanobis AUC: 0.541
+Mahalanobis PR AUC: 0.302
+
+Kernel: integral rbf
+Mahalanobis AUC: 0.557
+Mahalanobis PR AUC: 0.307
+
+Kernel: integral poly
+Mahalanobis AUC: 0.579
+Mahalanobis PR AUC: 0.319
+
+End Dataset
+
+
+
+Dataset: FingerMovements
+Number of Classes: 2
+Dimension of path: 28
+Length: 50
+Train: 316
+Test: 100
+
+Kernel: linear
+Conformance AUC: 0.499
+Conformance PR AUC: 0.498
+
+Kernel: rbf
+Conformance AUC: 0.556
+Conformance PR AUC: 0.555
+
+Kernel: poly
+Conformance AUC: 0.52
+Conformance PR AUC: 0.561
+
+Kernel: gak
+Conformance AUC: 0.567
+Conformance PR AUC: 0.586
+
+Kernel: truncated sig
+Conformance AUC: 0.521
+Conformance PR AUC: 0.543
+
+Kernel: truncated sig rbf
+Conformance AUC: 0.565
+Conformance PR AUC: 0.567
+
+Kernel: signature pde rbf
+Conformance AUC: 0.544
+Conformance PR AUC: 0.586
+
+Kernel: integral rbf
+Conformance AUC: 0.533
+Conformance PR AUC: 0.547
+
+Kernel: integral poly
+Conformance AUC: 0.524
+Conformance PR AUC: 0.56
+
+Kernel: linear
+Mahalanobis AUC: 0.509
+Mahalanobis PR AUC: 0.512
+
+Kernel: rbf
+Mahalanobis AUC: 0.491
+Mahalanobis PR AUC: 0.499
+
+Kernel: poly
+Mahalanobis AUC: 0.512
+Mahalanobis PR AUC: 0.515
+
+Kernel: gak
+Mahalanobis AUC: 0.484
+Mahalanobis PR AUC: 0.501
+
+Kernel: truncated sig
+Mahalanobis AUC: 0.477
+Mahalanobis PR AUC: 0.519
+
+Kernel: truncated sig rbf
+Mahalanobis AUC: 0.441
+Mahalanobis PR AUC: 0.517
+
+Kernel: signature pde rbf
+Mahalanobis AUC: 0.419
+Mahalanobis PR AUC: 0.491
+
+Kernel: integral rbf
+Mahalanobis AUC: 0.482
+Mahalanobis PR AUC: 0.476
+
+Kernel: integral poly
+Mahalanobis AUC: 0.515
+Mahalanobis PR AUC: 0.518
+
+End Dataset
+
+
+
+Dataset: HandMovementDirection
+Number of Classes: 4
+Dimension of path: 10
+Length: 400
+Train: 160
+Test: 74
+
+Kernel: linear
+Conformance AUC: 0.433
+Conformance PR AUC: 0.259
+
+Kernel: rbf
+Conformance AUC: 0.45
+Conformance PR AUC: 0.244
+
+Kernel: poly
+Conformance AUC: 0.517
+Conformance PR AUC: 0.303
+
+Kernel: gak
+Conformance AUC: 0.475
+Conformance PR AUC: 0.247
+
+Kernel: truncated sig
+Conformance AUC: 0.503
+Conformance PR AUC: 0.296
+
+Kernel: truncated sig rbf
+Conformance AUC: 0.523
+Conformance PR AUC: 0.315
+
+Kernel: signature pde rbf
+Conformance AUC: 0.5
+Conformance PR AUC: 0.284
+
+Kernel: integral rbf
+Conformance AUC: 0.575
+Conformance PR AUC: 0.349
+
+Kernel: integral poly
+Conformance AUC: 0.517
+Conformance PR AUC: 0.33
+
+Kernel: linear
+Mahalanobis AUC: 0.558
+Mahalanobis PR AUC: 0.338
+
+Kernel: rbf
+Mahalanobis AUC: 0.518
+Mahalanobis PR AUC: 0.299
+
+Kernel: poly
+Mahalanobis AUC: 0.574
+Mahalanobis PR AUC: 0.342
+
+Kernel: gak
+Mahalanobis AUC: 0.473
+Mahalanobis PR AUC: 0.283
+
+Kernel: truncated sig
+Mahalanobis AUC: 0.526
+Mahalanobis PR AUC: 0.313
+
+Kernel: truncated sig rbf
+Mahalanobis AUC: 0.489
+Mahalanobis PR AUC: 0.269
+
+Kernel: signature pde rbf
+Mahalanobis AUC: 0.46
+Mahalanobis PR AUC: 0.278
+
+Kernel: integral rbf
+Mahalanobis AUC: 0.555
+Mahalanobis PR AUC: 0.343
+
+Kernel: integral poly
+Mahalanobis AUC: 0.576
+Mahalanobis PR AUC: 0.387
+
+End Dataset
+
+
+
+Dataset: Heartbeat
+Number of Classes: 2
+Dimension of path: 61
+Length: 405
+Train: 204
+Test: 205
+
+Kernel: linear
+Conformance AUC: 0.539
+Conformance PR AUC: 0.523
+
+Kernel: rbf
+Conformance AUC: 0.604
+Conformance PR AUC: 0.554
+
+Kernel: poly
+Conformance AUC: 0.517
+Conformance PR AUC: 0.512
+
+Kernel: gak
+Conformance AUC: 0.529
+Conformance PR AUC: 0.509
+
+Kernel: truncated sig
+Conformance AUC: 0.518
+Conformance PR AUC: 0.532
+
+Kernel: truncated sig rbf
+Conformance AUC: 0.629
+Conformance PR AUC: 0.599
+
+Kernel: signature pde rbf
+Conformance AUC: 0.605
+Conformance PR AUC: 0.586
+
+Kernel: integral rbf
+Conformance AUC: 0.611
+Conformance PR AUC: 0.55
+
+Kernel: integral poly
+Conformance AUC: 0.537
+Conformance PR AUC: 0.515
+
+Kernel: linear
+Mahalanobis AUC: 0.578
+Mahalanobis PR AUC: 0.56
+
+Kernel: rbf
+Mahalanobis AUC: 0.565
+Mahalanobis PR AUC: 0.533
+
+Kernel: poly
+Mahalanobis AUC: 0.587
+Mahalanobis PR AUC: 0.572
+
+Kernel: gak
+Mahalanobis AUC: 0.611
+Mahalanobis PR AUC: 0.613
+
+Kernel: truncated sig
+Mahalanobis AUC: 0.561
+Mahalanobis PR AUC: 0.565
+
+Kernel: truncated sig rbf
+Mahalanobis AUC: 0.631
+Mahalanobis PR AUC: 0.625
+
+Kernel: signature pde rbf
+Mahalanobis AUC: 0.6
+Mahalanobis PR AUC: 0.572
+
+Kernel: integral rbf
+Mahalanobis AUC: 0.631
+Mahalanobis PR AUC: 0.611
+
+Kernel: integral poly
+Mahalanobis AUC: 0.522
+Mahalanobis PR AUC: 0.528
+
+End Dataset
+
+
+
+Dataset: MotorImagery
+Number of Classes: 2
+Dimension of path: 64
+Length: 3000
+Train: 278
+Test: 100
+
+Kernel: linear
+Conformance AUC: 0.513
+Conformance PR AUC: 0.531
+
+Kernel: rbf
+Conformance AUC: 0.543
+Conformance PR AUC: 0.55
+
+Kernel: poly
+Conformance AUC: 0.487
+Conformance PR AUC: 0.52
+
+Kernel: gak
+Conformance AUC: 0.562
+Conformance PR AUC: 0.565
+
+Kernel: truncated sig
+Conformance AUC: 0.507
+Conformance PR AUC: 0.535
+
+Kernel: truncated sig rbf
+Conformance AUC: 0.565
+Conformance PR AUC: 0.562
+
+Kernel: signature pde rbf
+Conformance AUC: 0.504
+Conformance PR AUC: 0.554
+
+Kernel: integral rbf
+Conformance AUC: 0.567
+Conformance PR AUC: 0.565
+
+Kernel: integral poly
+Conformance AUC: 0.528
+Conformance PR AUC: 0.542
+
+Kernel: linear
+Mahalanobis AUC: 0.504
+Mahalanobis PR AUC: 0.537
+
+Kernel: rbf
+Mahalanobis AUC: 0.536
+Mahalanobis PR AUC: 0.557
+
+Kernel: poly
+Mahalanobis AUC: 0.533
+Mahalanobis PR AUC: 0.542
+
+Kernel: gak
+Mahalanobis AUC: 0.521
+Mahalanobis PR AUC: 0.534
+
+Kernel: truncated sig
+Mahalanobis AUC: 0.514
+Mahalanobis PR AUC: 0.52
+
+Kernel: truncated sig rbf
+Mahalanobis AUC: 0.414
+Mahalanobis PR AUC: 0.444
+
+Kernel: signature pde rbf
+Mahalanobis AUC: 0.531
+Mahalanobis PR AUC: 0.551
+
+Kernel: integral rbf
+Mahalanobis AUC: 0.508
+Mahalanobis PR AUC: 0.546
+
+Kernel: integral poly
+Mahalanobis AUC: 0.523
+Mahalanobis PR AUC: 0.531
+
+End Dataset
+
+
+
+Dataset: NATOPS
+Number of Classes: 6
+Dimension of path: 24
+Length: 51
+Train: 180
+Test: 180
+
+Kernel: linear
+Conformance AUC: 0.884
+Conformance PR AUC: 0.612
+
+Kernel: rbf
+Conformance AUC: 0.874
+Conformance PR AUC: 0.634
+
+Kernel: poly
+Conformance AUC: 0.863
+Conformance PR AUC: 0.583
+
+Kernel: gak
+Conformance AUC: 0.796
+Conformance PR AUC: 0.56
+
+Kernel: truncated sig
+Conformance AUC: 0.815
+Conformance PR AUC: 0.545
+
+Kernel: truncated sig rbf
+Conformance AUC: 0.63
+Conformance PR AUC: 0.361
+
+Kernel: signature pde rbf
+Conformance AUC: 0.635
+Conformance PR AUC: 0.356
+
+Kernel: integral rbf
+Conformance AUC: 0.892
+Conformance PR AUC: 0.642
+
+Kernel: integral poly
+Conformance AUC: 0.879
+Conformance PR AUC: 0.63
+
+Kernel: linear
+Mahalanobis AUC: 0.869
+Mahalanobis PR AUC: 0.618
+
+Kernel: rbf
+Mahalanobis AUC: 0.869
+Mahalanobis PR AUC: 0.617
+
+Kernel: poly
+Mahalanobis AUC: 0.785
+Mahalanobis PR AUC: 0.473
+
+Kernel: gak
+Mahalanobis AUC: 0.837
+Mahalanobis PR AUC: 0.566
+
+Kernel: truncated sig
+Mahalanobis AUC: 0.801
+Mahalanobis PR AUC: 0.516
+
+Kernel: truncated sig rbf
+Mahalanobis AUC: 0.707
+Mahalanobis PR AUC: 0.437
+
+Kernel: signature pde rbf
+Mahalanobis AUC: 0.678
+Mahalanobis PR AUC: 0.389
+
+Kernel: integral rbf
+Mahalanobis AUC: 0.874
+Mahalanobis PR AUC: 0.625
+
+Kernel: integral poly
+Mahalanobis AUC: 0.803
+Mahalanobis PR AUC: 0.51
+
+End Dataset
+
+
+
+Dataset: PEMS-SF
+Number of Classes: 7
+Dimension of path: 963
+Length: 144
+Train: 267
+Test: 173
+
+Kernel: linear
+Conformance AUC: 0.916
+Conformance PR AUC: 0.821
+
+Kernel: rbf
+Conformance AUC: 0.919
+Conformance PR AUC: 0.817
+
+Kernel: poly
+Conformance AUC: 0.9
+Conformance PR AUC: 0.797
+
+Kernel: gak
+Conformance AUC: 0.929
+Conformance PR AUC: 0.823
+
+Kernel: truncated sig
+Conformance AUC: 0.934
+Conformance PR AUC: 0.831
+
+Kernel: truncated sig rbf
+Conformance AUC: 0.925
+Conformance PR AUC: 0.825
+
+Kernel: signature pde rbf
+Conformance AUC: 0.886
+Conformance PR AUC: 0.801
+
+Kernel: integral rbf
+Conformance AUC: 0.918
+Conformance PR AUC: 0.813
+
+Kernel: integral poly
+Conformance AUC: 0.899
+Conformance PR AUC: 0.795
+
+Kernel: linear
+Mahalanobis AUC: 0.706
+Mahalanobis PR AUC: 0.433
+
+Kernel: rbf
+Mahalanobis AUC: 0.705
+Mahalanobis PR AUC: 0.432
+
+Kernel: poly
+Mahalanobis AUC: 0.566
+Mahalanobis PR AUC: 0.354
+
+Kernel: gak
+Mahalanobis AUC: 0.747
+Mahalanobis PR AUC: 0.458
+
+Kernel: truncated sig
+Mahalanobis AUC: 0.82
+Mahalanobis PR AUC: 0.571
+
+Kernel: truncated sig rbf
+Mahalanobis AUC: 0.78
+Mahalanobis PR AUC: 0.485
+
+Kernel: signature pde rbf
+Mahalanobis AUC: 0.49
+Mahalanobis PR AUC: 0.278
+
+Kernel: integral rbf
+Mahalanobis AUC: 0.695
+Mahalanobis PR AUC: 0.428
+
+Kernel: integral poly
+Mahalanobis AUC: 0.61
+Mahalanobis PR AUC: 0.366
+
+End Dataset
+
+
+
+Dataset: RacketSports
+Number of Classes: 4
+Dimension of path: 6
+Length: 30
+Train: 151
+Test: 152
+
+Kernel: linear
+Conformance AUC: 0.704
+Conformance PR AUC: 0.515
+
+Kernel: rbf
+Conformance AUC: 0.524
+Conformance PR AUC: 0.442
+
+Kernel: poly
+Conformance AUC: 0.61
+Conformance PR AUC: 0.423
+
+Kernel: gak
+Conformance AUC: 0.76
+Conformance PR AUC: 0.621
+
+Kernel: truncated sig
+Conformance AUC: 0.762
+Conformance PR AUC: 0.541
+
+Kernel: truncated sig rbf
+Conformance AUC: 0.62
+Conformance PR AUC: 0.452
+
+Kernel: signature pde rbf
+Conformance AUC: 0.623
+Conformance PR AUC: 0.535
+
+Kernel: integral rbf
+Conformance AUC: 0.695
+Conformance PR AUC: 0.568
+
+Kernel: integral poly
+Conformance AUC: 0.792
+Conformance PR AUC: 0.61
+
+Kernel: linear
+Mahalanobis AUC: 0.653
+Mahalanobis PR AUC: 0.4
+
+Kernel: rbf
+Mahalanobis AUC: 0.652
+Mahalanobis PR AUC: 0.4
+
+Kernel: poly
+Mahalanobis AUC: 0.444
+Mahalanobis PR AUC: 0.249
+
+Kernel: gak
+Mahalanobis AUC: 0.828
+Mahalanobis PR AUC: 0.644
+
+Kernel: truncated sig
+Mahalanobis AUC: 0.772
+Mahalanobis PR AUC: 0.539
+
+Kernel: truncated sig rbf
+Mahalanobis AUC: 0.718
+Mahalanobis PR AUC: 0.525
+
+Kernel: signature pde rbf
+Mahalanobis AUC: 0.554
+Mahalanobis PR AUC: 0.438
+
+Kernel: integral rbf
+Mahalanobis AUC: 0.66
+Mahalanobis PR AUC: 0.399
+
+Kernel: integral poly
+Mahalanobis AUC: 0.483
+Mahalanobis PR AUC: 0.253
+
+End Dataset
+
+
+
+Dataset: SelfRegulationSCP1
+Number of Classes: 2
+Dimension of path: 6
+Length: 896
+Train: 268
+Test: 293
+
+Kernel: linear
+Conformance AUC: 0.647
+Conformance PR AUC: 0.663
+
+Kernel: rbf
+Conformance AUC: 0.78
+Conformance PR AUC: 0.775
+
+Kernel: poly
+Conformance AUC: 0.825
+Conformance PR AUC: 0.808
+
+Kernel: gak
+Conformance AUC: 0.756
+Conformance PR AUC: 0.739
+
+Kernel: truncated sig
+Conformance AUC: 0.646
+Conformance PR AUC: 0.638
+
+Kernel: truncated sig rbf
+Conformance AUC: 0.784
+Conformance PR AUC: 0.758
+
+Kernel: signature pde rbf
+Conformance AUC: 0.71
+Conformance PR AUC: 0.699
+
+Kernel: integral rbf
+Conformance AUC: 0.79
+Conformance PR AUC: 0.749
+
+Kernel: integral poly
+Conformance AUC: 0.797
+Conformance PR AUC: 0.794
+
+Kernel: linear
+Mahalanobis AUC: 0.678
+Mahalanobis PR AUC: 0.705
+
+Kernel: rbf
+Mahalanobis AUC: 0.593
+Mahalanobis PR AUC: 0.659
+
+Kernel: poly
+Mahalanobis AUC: 0.582
+Mahalanobis PR AUC: 0.647
+
+Kernel: gak
+Mahalanobis AUC: 0.587
+Mahalanobis PR AUC: 0.651
+
+Kernel: truncated sig
+Mahalanobis AUC: 0.632
+Mahalanobis PR AUC: 0.65
+
+Kernel: truncated sig rbf
+Mahalanobis AUC: 0.721
+Mahalanobis PR AUC: 0.706
+
+Kernel: signature pde rbf
+Mahalanobis AUC: 0.723
+Mahalanobis PR AUC: 0.715
+
+Kernel: integral rbf
+Mahalanobis AUC: 0.582
+Mahalanobis PR AUC: 0.651
+
+Kernel: integral poly
+Mahalanobis AUC: 0.578
+Mahalanobis PR AUC: 0.646
+
+End Dataset
+
+
+
