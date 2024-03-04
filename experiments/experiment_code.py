@@ -18,14 +18,6 @@ from models.kernels import pairwise_kernel_gram, integral_kernel_gram, sig_kerne
 from experiments.normalize_streams import normalize_streams
 
 
-def print_dataset_stats(num_classes, d, T, N_train, N_test):
-    print("Number of Classes:", num_classes)
-    print("Dimension of path:", d)
-    print("Length:", T)
-    print("Train:", N_train)
-    print("Test:", N_test)
-
-
 def case_static(train:np.ndarray, 
                 test:np.ndarray,
                 static_kernel_gram:Callable,):
@@ -76,7 +68,7 @@ def case_gak(train:List[np.ndarray],
                    gak_factor:float = 1.0,):
     """Calculates the gram matrices for the gak kernel.
     Train and test are lists of possibly variable length multidimension 
-    time series of shape (T_i, d)"""
+    time series of shape (T_i, d)."""
     if fixed_length:
         #pick sigma parameter according to GAK paper
         sigma = gak_factor * tslearn.metrics.sigma_gak(np.array(train))
@@ -101,7 +93,7 @@ def case_sig_pde(train:List[np.ndarray],
                 ):
     """Calculates the signature kernel gram matrices of the train and test.
     Train and test are lists of possibly variable length multidimension 
-    time series of shape (T_i, d)"""
+    time series of shape (T_i, d)."""
     sig_kernel = sigkernel.SigKernel(static_kernel, int(dyadic_order) )
     kernel = lambda s1, s2 : sig_kernel.compute_kernel(
                                 stream_to_torch(s1), 
@@ -120,6 +112,9 @@ def case_truncated_sig(
         n_jobs:int = 1,
         verbose:bool = False,
         ):
+    """Calculates the truncated signature kernel gram matrices of the train and test.
+    Train and test are lists of possibly variable length multidimension time
+    series of shape (T_i, d)."""
     vv_gram = sig_kernel_gram(train, train, order, static_kernel, only_last, 
                               sym=True, n_jobs=n_jobs, verbose=verbose)
     uv_gram = sig_kernel_gram(test, train, order, static_kernel, only_last, 
@@ -134,11 +129,14 @@ def case_integral(
         n_jobs:int = 1,
         verbose:bool = False,
         ):
-        vv_gram = integral_kernel_gram(train, train, static_kernel_with_diag, 
-                                       sym=True, n_jobs=n_jobs, verbose=verbose)
-        uv_gram = integral_kernel_gram(test, train, static_kernel_with_diag, 
-                                n_jobs=n_jobs, verbose=verbose)
-        return vv_gram, uv_gram
+    """Calculates the integral kernel gram matrices of the train and test,
+    given a static kernel on R^d. Train and test are lists of possibly 
+    variable length multidimension time series of shape (T_i, d)."""
+    vv_gram = integral_kernel_gram(train, train, static_kernel_with_diag, 
+                                    sym=True, n_jobs=n_jobs, verbose=verbose)
+    uv_gram = integral_kernel_gram(test, train, static_kernel_with_diag, 
+                            n_jobs=n_jobs, verbose=verbose)
+    return vv_gram, uv_gram
 
 
 def calc_grams(train:List[np.ndarray], 
@@ -151,7 +149,6 @@ def calc_grams(train:List[np.ndarray],
     """Calculates gram matrices <train, train>, <test, train> given a kernel.
     Train and test are lists of possibly variable length multidimension time 
     series of shape (T_i, d)"""
-    
     #choose method based on kernel name
     T, d = train[0].shape[-2:]
     kernel_name = param_dict["kernel_name"]
@@ -196,11 +193,22 @@ def calc_grams(train:List[np.ndarray],
         raise ValueError("Invalid kernel name:", kernel_name)
 
 
-#divide by 1/distance
-def compute_aucs(distances_conf:np.ndarray,     #size N
-                 distances_mahal:np.ndarray,    #size N
-                 y_test:np.array,               #size N
+def compute_aucs(distances_conf:np.ndarray,    
+                 distances_mahal:np.ndarray,    
+                 y_test:np.ndarray,             
                  class_to_test,):
+    """Computes the AUC scores based on one vs rest anomaly distances.
+
+    Args:
+        distances_conf (np.ndarray): Conformance anomaly distances, shape (N,).
+        distances_mahal (np.ndarray): Mahalanobis anomaly distances, shape (N,).
+        y_test (np.ndarray): Ground truth class labels, shape (N,).
+        class_to_test (Any): Class label corresponding to the normal class.
+
+    Returns:
+        np.ndarray: AUC scores for conformance and mahalanobis distances,
+                    and for ROC and PR AUC. Shape (2,2).
+    """
     # 2 methods (conf, mahal), 2 metrics (roc_auc, pr_auc)
     aucs = np.zeros( (2, 2) ) 
 
@@ -208,6 +216,7 @@ def compute_aucs(distances_conf:np.ndarray,     #size N
     for idx_conf_mahal, distances in enumerate([distances_conf, distances_mahal]):
         
         #PR AUC requires minority class to be label 1.
+        #ROC AUC is agnostic to class imbalance.
         distances = 1/(distances+0.001)
         ovr_labels = y_test == class_to_test
 
@@ -220,10 +229,12 @@ def compute_aucs(distances_conf:np.ndarray,     #size N
 
 
 def get_corpus_and_test(X_train:List[np.ndarray], 
-                        y_train:np.array, 
+                        y_train:np.ndarray, 
                         X_test:List[np.ndarray], 
-                        class_to_test:int, 
+                        class_to_test:Any, 
                         ):
+    """Returns the corpus and test set for a single class
+    specified by label 'class_to_test'."""
     # Get all samples of the current class
     idxs = np.where(y_train == class_to_test)[0]
     corpus = [X_train[k] for k in idxs]
@@ -289,14 +300,29 @@ def run_single_kernel_single_label(
 
 
 def run_all_kernels(X_train:List[np.ndarray], 
-                    y_train:np.array, 
+                    y_train:np.ndarray, 
                     X_test:List[np.ndarray], 
-                    y_test:np.array, 
-                    unique_labels:np.array, 
+                    y_test:np.ndarray, 
+                    unique_labels:np.ndarray, 
                     kernelwise_dict:Dict[str, Dict[str, Dict[str, Any]]], # kernel_name : label : param_dict
                     n_jobs:int = 1, 
                     verbose:bool = True,
-                    ):
+                    ) -> Dict[str, np.ndarray]:
+    """Runs all kernels for all classes and computes AUC scores.
+
+    Args:
+        X_train (List[np.ndarray]): List of time series of shape (T_i, d).
+        y_train (np.array): 1-dim array of class labels.
+        X_test (List[np.ndarray]): List of time series of shape (T_i, d).
+        y_test (np.array): 1-dim array of class labels.
+        unique_labels (np.array): Unique class labels.
+        kernelwise_dict (Dict[str, Dict[str, Dict[str, Any]]]): Nested dict 
+                        of kernel parameters. kernel_name : label : param_dict
+        verbose (bool): If True, prints progress.
+
+    Returns:
+        Dict[str, np.ndarray]: Dictionary of AUC scores for all kernels.
+    """
     kernel_results = {}
     for kernel_name, labelwise_dict in kernelwise_dict.items():
         print("Kernel:", kernel_name)
@@ -315,5 +341,13 @@ def run_all_kernels(X_train:List[np.ndarray],
     return kernel_results
 
 
+def print_dataset_stats(num_classes, d, T, N_train, N_test):
+    print("Number of Classes:", num_classes)
+    print("Dimension of path:", d)
+    print("Length:", T)
+    print("Train:", N_train)
+    print("Test:", N_test)
+
+    
 if __name__ == "__main__":
     pass
