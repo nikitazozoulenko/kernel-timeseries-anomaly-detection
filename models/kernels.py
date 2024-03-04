@@ -268,7 +268,17 @@ def sig_kernel(s1:np.ndarray,
                order:int,
                static_kernel_gram:Callable = linear_kernel_gram,
                only_last:bool = True):
-    """s1 and s2 are time series of shape (T_i, d)"""
+    """Computes the truncated signature kernel of two time series of 
+    shape (T_i, d) with respect to a static kernel on R^d.
+
+    Args:
+        s1 (np.ndarray): Array of shape (T_1, d).
+        s2 (np.ndarray): Array of shape (T_2, d).
+        order (int): Truncation order of the signature kernel.
+        static_kernel_gram (Callable): Gram kernel function taking in two ndarrays,
+                            see e.g. 'linear_kernel_gram' or 'rbf_kernel_gram'.
+        only_last (bool): If False, returns results of all truncation levels up to 'order'.
+    """
     K = static_kernel_gram(s1, s2)
     nabla = K[1:, 1:] + K[:-1, :-1] - K[1:, :-1] - K[:-1, 1:]
     sig_kers = jitted_trunc_sig_kernel(nabla, order)
@@ -282,7 +292,12 @@ def sig_kernel(s1:np.ndarray,
 @njit((nb.float64[:, ::1], nb.int64), fastmath=True, cache=True)
 def reverse_cumsum(arr:np.ndarray, axis:int): #ndim=2
     """JITed reverse cumulative sum along the specified axis.
-    (np.cumsum with axis is not natively supported by Numba)"""
+    (np.cumsum with axis is not natively supported by Numba)
+    
+    Args:
+        arr (np.ndarray): Array of shape (T_1, T_2).
+        axis (int): Axis along which to cumsum.
+    """
     A = arr.copy()
     if axis==0:
         for i in np.arange(A.shape[0]-2, -1, -1):
@@ -332,9 +347,9 @@ def sig_kernel_gram(
     Args:
         X (List[np.ndarray]): List of time series of shape (T_i, d).
         Y (List[np.ndarray]): List of time series of shape (T_j, d).
+        order (int): Truncation level of the signature kernel.
         static_kernel_gram (Callable): Gram kernel function taking in two ndarrays,
                             see e.g. 'linear_kernel_gram' or 'rbf_kernel_gram'.
-        order (int): Truncation level of the signature kernel.
         only_last (bool): If False, returns results of all truncation levels up to 'order'.
         sym (bool): If True, computes the symmetric Gram matrix.
         n_jobs (int): Number of parallel jobs to run.
