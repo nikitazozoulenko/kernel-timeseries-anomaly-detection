@@ -2,10 +2,13 @@ import numpy as np
 import iisignature
 import sigkernel
 import torch
+from typing import List, Optional, Dict, Set, Callable, Any
+import sys
+import os
 
-from typing import List, Optional, Dict, Set, Callable
-
-from models.kernels import pairwise_kernel_gram, linear_kernel_gram, rbf_kernel_gram, sig_kernel_gram
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from models.kernels import pairwise_kernel_gram, sig_kernel_gram, integral_kernel_gram
+from models.kernels import linear_kernel_gram, poly_kernel_gram, rbf_kernel_gram
 
 
 ################################################################################################## |
@@ -16,7 +19,7 @@ class BaseclassConformanceScore():
     def __init__(self, 
                  inner_prod_Gram_matrix:np.ndarray, 
                  SVD_threshold:float = 0.0001,
-                 verbose:bool = True,
+                 verbose:bool = False,
                  SVD_max_rank:Optional[int] = None,
                 ):
         """Class which computes the conformance score or Mahalanobis distance to a 
@@ -143,7 +146,7 @@ class RnConformanceScore(BaseclassConformanceScore):
     def __init__(self, 
                  corpus:np.ndarray, 
                  SVD_threshold:float = 0.0,
-                 print_rank:bool = True,
+                 verbose:bool = False,
                  SVD_max_rank:Optional[int] = None,
                 ):
         """Callable class which computes the conformance score to a given corpus of (finite dimensional) data.
@@ -151,12 +154,12 @@ class RnConformanceScore(BaseclassConformanceScore):
         Args:
             corpus (np.ndarray): Array of shape (N,d) of d-dimensional feature vectors.
             SVD_threshold (float): Sets all eigenvalues below this threshold to be 0.
-            print_rank (bool): If true, prints out the SVD rank after thresholding.
+            verbose (bool): If true, prints out the SVD rank after thresholding.
             SVD_max_rank (int): Sets all SVD eigenvalues to be 0 beyond 'SVD_max_rank'.
         """
         self.corpus = corpus
         inner_prod_Gram_matrix = corpus @ corpus.T  #<x_i, x_j>
-        super().__init__(inner_prod_Gram_matrix, SVD_threshold, print_rank, SVD_max_rank)
+        super().__init__(inner_prod_Gram_matrix, SVD_threshold, verbose, SVD_max_rank)
     
     def __call__(self, 
                  y:np.ndarray,
@@ -184,10 +187,10 @@ class TruncSigConformanceScore(BaseclassConformanceScore):
     def __init__(self, 
                  corpus:np.ndarray, 
                  SVD_threshold:float = 0.0,
-                 print_rank:bool = True,
+                 verbose:bool = False,
                  SVD_max_rank:Optional[int] = None,
                  order:int = 5,
-                 static_kernel_gram = rbf_kernel_gram,
+                 static_kernel_gram = linear_kernel_gram,
                 ):
         """Callable class which computes the anomaly distance with respect to a corpus of 
         variable length, d-dimensional time series, via truncated signature features (via 
@@ -196,7 +199,7 @@ class TruncSigConformanceScore(BaseclassConformanceScore):
         Args:
             corpus (np.ndarray): Array of shape (N,T,d) of d-dimensional equal length time series.
             SVD_threshold (float): Sets all eigenvalues below this threshold to be 0.
-            print_rank (bool): If true, prints out the SVD rank after thresholding.
+            verbose (bool): If true, prints out the SVD rank after thresholding.
             SVD_max_rank (int): Sets all SVD eigenvalues to be 0 beyond 'SVD_max_rank'.
             order (int): Order of the truncated signature transform.
             static_kernel_gram: A function which takes two ndarrays of ndim=3 and returns the
@@ -206,7 +209,7 @@ class TruncSigConformanceScore(BaseclassConformanceScore):
         self.order = order
         self.static_kernel_gram = static_kernel_gram
         inner_prod_Gram_matrix = sig_kernel_gram(corpus, corpus, order, static_kernel_gram)
-        super().__init__(inner_prod_Gram_matrix, SVD_threshold, print_rank, SVD_max_rank)
+        super().__init__(inner_prod_Gram_matrix, SVD_threshold, verbose, SVD_max_rank)
     
 
     def __call__(self, 
@@ -228,6 +231,60 @@ class TruncSigConformanceScore(BaseclassConformanceScore):
         # euclidean inner product
         inner_prod_y_xn = sig_kernel_gram(stream, self.corpus, self.order, self.static_kernel_gram)
         return self._anomaly_distance(inner_prod_y_xn, method)
+    
+
+
+############################################################################################## |
+####################### Integral class kernel w.r.t static kernel ############################ |
+############################################################################################## \/
+
+
+class IntegralConformanceScore(BaseclassConformanceScore):
+    def __init__(self, 
+                 corpus:np.ndarray, 
+                 SVD_threshold:float = 0.0,
+                 verbose:bool = False,
+                 SVD_max_rank:Optional[int] = None,
+                 static_kernel_gram = linear_kernel_gram,
+                ):
+        """Callable class which computes the anomaly distance with respect to a corpus of 
+        variable length, d-dimensional time series, via integral class kernels w.r.t. a static 
+        kernel with 'diag' argument.
+
+        Args:
+            corpus (np.ndarray): Array of shape (N,T,d) of d-dimensional equal length time series.
+            SVD_threshold (float): Sets all eigenvalues below this threshold to be 0.
+            verbose (bool): If true, prints out the SVD rank after thresholding.
+            SVD_max_rank (int): Sets all SVD eigenvalues to be 0 beyond 'SVD_max_rank'.
+            static_kernel_gram: A function which takes two ndarrays of ndim=3 and returns the
+                                kernel Gram matrix, such as 'rbf_kernel_gram' or 'linear_kernel_gram'
+                                with a 'diag' argument.
+        """
+        self.corpus = corpus
+        self.static_kernel_gram = static_kernel_gram
+        inner_prod_Gram_matrix = integral_kernel_gram(corpus, corpus, static_kernel_gram)
+        super().__init__(inner_prod_Gram_matrix, SVD_threshold, verbose, SVD_max_rank)
+    
+
+    def __call__(self, 
+                 stream:np.ndarray,
+                 method:str = "conformance"
+                 ):
+        """ Returns the anomaly distance of 'stream' with respect to the corpus.
+            Uses either conformance score (nearest neighbour variance distance), 
+            or Mahalanobis distance (variance distance to the mean).
+
+        Args:
+            stream (np.ndarray): Time series of shape (T,d) or (N, T, d).
+            method (str): Either "mahalanobis", "conformance", or "both".
+        """
+        #expand dim if necessary
+        if stream.ndim == 2:
+            stream = np.expand_dims(stream, axis=0)
+
+        # euclidean inner product
+        inner_prod_y_xn = integral_kernel_gram(stream, self.corpus, self.static_kernel_gram)
+        return self._anomaly_distance(inner_prod_y_xn, method)
 
 
 ############################################################################################## |
@@ -237,12 +294,11 @@ class TruncSigConformanceScore(BaseclassConformanceScore):
 
 class KernelizedConformanceScore(BaseclassConformanceScore):
     def __init__(self, 
-                corpus:List,
+                corpus:List[Any],
                 kernel:Callable,
                 SVD_threshold:float = 0.0,
-                print_rank:bool = True,
+                verbose:bool = False,
                 SVD_max_rank:Optional[int] = None,
-                disable_Gram_tqdm:bool = False,
                 n_jobs:int = 1,
                 ):
         """Callable class which computes the kernelized anomaly score with respect to a corpus of data.
@@ -251,10 +307,9 @@ class KernelizedConformanceScore(BaseclassConformanceScore):
             corpus (List): List of elements beloning to the same class.
             kernel (Callable): A kernel function which takes two elements and returns a non-negative scalar.
             SVD_threshold (float): Sets all eigenvalues below this threshold to be 0.
-            print_rank (bool): If true, prints out the SVD rank after thresholding.
+            verbose (bool): If true, prints out the SVD rank after thresholding.
             SVD_max_rank (int): Sets all SVD eigenvalues to be 0 beyond 'SVD_max_rank'.
             n_jobs (int): Number of parallel jobs to run in the kernel calculations.
-            disable_Gram_tqdm (bool): Whether to disable the tqdm progress bar for the Gram calculations.
         """
         self.corpus = corpus
         self.kernel = kernel
@@ -262,14 +317,14 @@ class KernelizedConformanceScore(BaseclassConformanceScore):
 
         #compute kernel Gram matrix
         inner_prod_Gram_matrix = pairwise_kernel_gram(corpus, corpus, kernel, 
-                        sym=True, n_jobs=n_jobs, disable_tqdm=disable_Gram_tqdm)
+                        sym=True, n_jobs=n_jobs)
 
-        super().__init__(inner_prod_Gram_matrix, SVD_threshold, print_rank, SVD_max_rank)
+        super().__init__(inner_prod_Gram_matrix, SVD_threshold, verbose, SVD_max_rank)
     
     def __call__(self, 
                  new_sample:np.ndarray,
                  method:str = "conformance",
-                 disable_tqdm:bool = True) -> np.ndarray:
+                 ) -> np.ndarray:
         """ Returns the kernelized anomaly distance with respect to the corpus.
             Uses either conformance score (nearest neighbour variance distance), 
             or Mahalanobis distance (variance distance to the mean).
@@ -277,14 +332,13 @@ class KernelizedConformanceScore(BaseclassConformanceScore):
         Args:
             new_sample: Time series of shape (T, d).
             method (str): Either "mahalanobis", "conformance", or "both".
-            disable_tqdm (bool): Whether to disable the tqdm progress bar.
 
         Returns:
             float: Anomaly distance.
         """
         # kernel as inner product
         inner_products = pairwise_kernel_gram([new_sample], self.corpus, self.kernel, 
-                            sym=False, n_jobs=self.n_jobs, disable_tqdm=disable_tqdm)
+                            sym=False, n_jobs=self.n_jobs)
         inner_products = np.array(inner_products)
         return self._anomaly_distance(inner_products, method)
     
@@ -294,18 +348,25 @@ if __name__ == "__main__":
     import time
     from tslearn.datasets import UCR_UEA_datasets
     from tslearn.metrics import gak
+    from models.normalize_streams import normalize_streams
 
     #get corpus, in-sample, and out-of-sample
     X_train, y_train, X_test, y_test = UCR_UEA_datasets().load_dataset("BasicMotions")
     normal_class = y_train[0]
     corpus = X_train[y_train == normal_class]
-    in_sample = X_test[y_test == normal_class][0]
-    out_sample = X_test[y_test != normal_class][0]
+    corpus, test = normalize_streams(corpus, X_test)
+    in_sample = test[y_test == normal_class][0]
+    out_sample = test[y_test != normal_class][0]
+    N, T, d = corpus.shape
 
     #get 3 different anomaly distance scorers
-    flattened_scorer = RnConformanceScore(X_train, SVD_threshold=0.0001)
-    sig_scorer = TruncSigConformanceScore(X_train, order=5, SVD_threshold=0.0001)
-    kernel_scorer = KernelizedConformanceScore(corpus, gak, SVD_threshold=0.0001)
+    poly_ker = lambda x, y, diag : poly_kernel_gram(x, y, 3, 1, diag)
+    rbf_ker = lambda x, y : rbf_kernel_gram(x, y, 0.01)
+    gak_ker = lambda x, y : gak(x, y, 30)
+    flattened_scorer = RnConformanceScore(corpus.reshape(N, T*d), SVD_threshold=0.0001)
+    int_scorer = IntegralConformanceScore(corpus, SVD_threshold=0.0001, static_kernel_gram=poly_ker)
+    sig_scorer = TruncSigConformanceScore(corpus, order=5, SVD_threshold=0.0001, static_kernel_gram=rbf_ker)
+    kernel_scorer = KernelizedConformanceScore(corpus, gak_ker, SVD_threshold=0.0001)
 
     #test the anomaly distances
     def anomaly_test(name, scorer, in_sample, out_sample):
@@ -315,6 +376,7 @@ if __name__ == "__main__":
         print("Anomaly distance for new sample, different distribution:", scorer(out_sample))
         print("Time taken: {}\n\n".format(time.perf_counter()-start))
 
-    anomaly_test("Truncated Signature", corpus, in_sample, out_sample)
-    anomaly_test("Signature Kernel", corpus, in_sample, out_sample)
-    anomaly_test("Signature Kernel (equal length, optimized)", corpus, in_sample, out_sample)
+    anomaly_test("Flattened", flattened_scorer, in_sample.reshape(1, T*d), out_sample.reshape(1, T*d))
+    anomaly_test("Integral Kernel", int_scorer, in_sample, out_sample)
+    anomaly_test("Truncated Signature", sig_scorer, in_sample, out_sample)
+    anomaly_test("GAK Kernel", kernel_scorer, in_sample, out_sample)
