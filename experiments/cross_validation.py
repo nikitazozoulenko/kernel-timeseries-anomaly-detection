@@ -20,20 +20,36 @@ from experiments.utils import save_to_pickle
 #######################################################################
 
 
-def repeat_k_folds(X:List,    #dataset
-                y:np.ndarray, #class labels
+def repeat_k_folds(X:List[Any],
+                y:np.ndarray,
                 k:int,
                 n_repeats:int,):
+    """Generates repeated k-folds for cross-validation, where each fold
+    is balanced the same as the original dataset.
+
+    Args:
+        X (List[Any]): Training data.
+        y (np.ndarray): Training class labels.
+        k (int): k-fold cross validation.
+        n_repeats (int): Repeats of k-fold CV.
+    """
+
     repeats = [create_k_folds(X, y, k) for _ in range(n_repeats)]
     return repeats
 
 
 
-def create_k_folds(X:List,    #dataset
-                y:np.ndarray, #class labels
+def create_k_folds(X:List[Any],
+                y:np.ndarray,
                 k:int,):
     """Generates balanced k-folds for cross-validation, where each fold
-    is balanced the same as the original dataset."""
+    is balanced the same as the original dataset.
+    
+    Args:
+        X (List[Any]): Training data.
+        y (np.ndarray): Training class labels.
+        k (int): k-fold cross validation.
+    """
 
     #is X numpy array?
     is_numpy=True if isinstance(X, np.ndarray) else False
@@ -81,9 +97,11 @@ def create_k_folds(X:List,    #dataset
 
     return folds
 
+
 #######################################################################
 ################### Hyperparameter combinations #######################
 #######################################################################
+
 
 def get_hyperparam_combinations(kernel_name:str):
     """Returns a dict of hyperparameter ranges and a list of all 
@@ -125,6 +143,7 @@ def get_hyperparam_ranges(kernel_name:str):
 
     return ranges
     
+
 #######################################################################
 ######################### Cross Validation ############################
 #######################################################################
@@ -148,13 +167,12 @@ def eval_1_paramdict_1_fold(fold:tuple,
     """Evaluates a single fold for a single hyperparameter configuration.
 
     Args:
-        fold (_type_): _description_
-        class_to_test (_type_): _description_
-        param_dict (_type_): _description_
-        min_fold_size (_type_): _description_
-
-    Returns:
-        _type_: _description_
+        fold (tuple): Training and validation data.
+        class_to_test (Any): The normal class.
+        param_dict (Dict[str, Any]): Hyperparameter configuration.
+        min_fold_size (int): Minimum size of the label class.
+        n_jobs_gram (int): Number of jobs for gram computation.
+        verbose (bool): Verbosity.
     """
     X_train, y_train, X_val, y_val = fold
     SVD_threshold = 10e-10
@@ -210,8 +228,19 @@ def eval_repeats_folds(kernel_name:str,
                 n_jobs_gram:int = 1,
                 verbose:bool = False,
                 ):
-    """"We permform anomaly detection using 'class_to_test' as the normal class. 
-    We then calculate the AUC scores for the given hyperparameters."""
+    """Evaluates the performance of the given hyperparameters on the 
+    given dataset using repeated k-fold cross-validation. Returns the
+    AUC scores for each hyperparameter configuration.
+
+    Args:
+        kernel_name (str): The name of the kernel.
+        repeats_and_folds (List[List[tuple]]): Repeated k-folds.
+        hyperparams (List[Dict[str, Any]]): List of hyperparameter configurations.
+        class_to_test (Any): The normal class.
+        n_jobs_repeats (int): Number of jobs for repeats.
+        n_jobs_gram (int): Number of jobs for gram computation.
+        verbose (bool): Verbosity.
+    """
 
     #calc minimum size of the label class
     min_fold_size = min([len(np.where(y_train==class_to_test)[0]) 
@@ -244,7 +273,13 @@ def choose_best_hyperparam(scores_conf_mahal:np.ndarray,
                            hyperparams:List[Dict[str, Any]],
                         ):
     """Chooses the best hyperparameter configuration based on the AUC 
-    scores outputed from 'eval_repeats_folds'."""
+    scores outputed from 'eval_repeats_folds'.
+    
+    Args:
+        scores_conf_mahal (np.ndarray): AUC scores for each hyperparameter configuration
+                                        outputed from 'eval_repeats_folds'.     
+        hyperparams (List[Dict[str, Any]]): List of hyperparameter configurations.
+    """
     c_m_param_dicts = [{}, {}]
     for i in range(2):
         #scores_conf_mahal shape (n_hyperparams, min_fold_size, 2, (opt. dim: n_truncs))
@@ -327,7 +362,17 @@ def cv_tslearn(dataset_names:List[str],
                 n_jobs_gram:int = 1,
                 verbose:bool = False
                 ):    
-    """Cross validation for tslearn datasets"""
+    """Cross validation for tslearn datasets.
+    
+    Args:
+        dataset_names (List[str]): List of tslearn dataset names.
+        kernel_names (List[str]): List of kernel names.
+        k (int): k-fold cross validation.
+        n_repeats (int): Repeats of k-fold CV.
+        n_jobs_repeats (int): Number of jobs for repeats and folds.
+        n_jobs_gram (int): Number of jobs for gram computation.
+        verbose (bool): Verbosity.
+        """
     cv_best_models = {} # dataset_name : kernel_name : label : param_dict
     for dataset_name in dataset_names:
         print("Dataset:", dataset_name)
@@ -366,7 +411,7 @@ def cv_tslearn(dataset_names:List[str],
 
 
 def average_labels(labelwise_dict:Dict[str, Dict[str, Any]],
-                          field:str):
+                    field:str):
     """Averages the values of a field over the labels."""
     L = [param_dict[field] for param_dict in labelwise_dict.values()]
     min_len = min([np.array(Li).size for Li in L])
@@ -379,9 +424,11 @@ def print_cv_results(
         dataset_kernel_label_paramdict : Dict[str, Dict[str, Dict[str, Any]]],
         ):
     """Prints the results of cross validation on the tslearn datasets
-    given a dict of form {dataset_name : kernel_name : label : param_dict}"""
-    print("Cross Validation Results")
+    given a dict of form {dataset_name : kernel_name : label : param_dict},
+    outputed by 'cv_tslearn'."""
+
     with np.printoptions(precision=3, suppress=True):
+        print("Cross Validation Results")
         for dataset_name, results in dataset_kernel_label_paramdict.items():
             print_dataset_stats(results['num_classes'], results['path dim'], 
                                 results['ts_length'], results['N_train'], "N/A")
@@ -407,14 +454,14 @@ def print_cv_results(
                                             "CV_train_score", "score_params", "score_thresh", 
                                             "score_orders"]})
             print("\nEnd dataset \n\n\n")
-            
+
 
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Run this script to run cross validation on ts-learn datasets.")
     parser.add_argument("--dataset_names", nargs="+", type=str, default=[
-        'Epilepsy',                    # N_corpus = 34      #I should probably further limit this to 100 < N_corpus < 1000
+        'Epilepsy',                    # N_corpus = 34
         'EthanolConcentration',        # N_corpus = 65
         'FingerMovements',             # N_corpus = 158
         'HandMovementDirection',       # N_corpus = 40
