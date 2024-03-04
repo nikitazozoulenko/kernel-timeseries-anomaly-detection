@@ -12,10 +12,10 @@ import sys
 import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from models.conformance import BaseclassConformanceScore
+from models.anomaly_distance import BaseclassConformanceScore
 from models.kernels import linear_kernel_gram, rbf_kernel_gram, poly_kernel_gram
 from models.kernels import pairwise_kernel_gram, integral_kernel_gram, sig_kernel_gram
-from experiments.normalize_streams import normalize_streams
+from models.normalize_streams import normalize_streams
 
 
 def case_static(train:np.ndarray, 
