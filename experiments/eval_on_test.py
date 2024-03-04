@@ -46,7 +46,7 @@ def validate_tslearn(
         c_kernelwise_dict = results["conf_results"]
         m_kernelwise_dict = results["mahal_results"]
         conf_results, mahal_results = (run_all_kernels(X_train, y_train, X_test, y_test, 
-                            unique_labels, kernelwise_dict, fixed_length=True, 
+                            unique_labels, kernelwise_dict,
                             n_jobs=n_jobs, verbose=verbose)
                             for kernelwise_dict in [c_kernelwise_dict, m_kernelwise_dict])
         experiments[dataset_name] = {"conf_results": conf_results, 
