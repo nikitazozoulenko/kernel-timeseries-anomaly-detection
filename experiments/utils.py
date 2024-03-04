@@ -52,6 +52,20 @@ def load_from_pickle(path:str = "Data/saved.pkl") -> Any:
 ##########################################################################
 
 
+def highlight_best(scores:np.ndarray[str],
+                   max_or_min:Literal["max", "min"],
+                   ):
+    """" Given a ndim=1 array of scores as strings,
+    replace all best occurences with a boldface string."""
+    best = max(scores) if max_or_min == "max" else min(scores)
+    best = np.argwhere(np.array(scores) == best).flatten()
+    copy = [s for s in scores]
+    for i in best:
+        copy[i] = r"\textbf{" + scores[i] + "}"
+    return copy
+
+
+
 def retrieve_kernel_AUCs(kernelwise_dict:Dict[str, np.ndarray],
                   mahal_or_conf:Literal["conf", "mahal"],
                   order=["linear", "rbf", "poly", "integral rbf", "integral poly", "truncated sig", "truncated sig rbf", "signature pde rbf", "gak"],
@@ -72,7 +86,7 @@ def retrieve_kernel_AUCs(kernelwise_dict:Dict[str, np.ndarray],
             PR_AUC.append( scores[1, 1])
         else:
             raise ValueError("Argument mahal_or_conf must be 'conf' or 'mahal'")
-    return np.array(ROC_AUC), np.array(PR_AUC)
+    return np.array(ROC_AUC), np.array(PR_AUC) #ndim=1
 
 
 
@@ -81,6 +95,7 @@ def add_datasets_to_latex_table(
     column_names:List[str],
     round_digits:int, 
     leading_zero:bool,
+    max_or_min:Literal["max", "min"] = "max" #used for boldfacing the best results
 ):
     """Given dataset and kernel results, return a string of LaTeX code 
     for the correspondig rows in a table.
@@ -99,6 +114,7 @@ def add_datasets_to_latex_table(
         for cm, ker_scores in zip(["C", "M"], cm_ker_scores):
             results = [f"{score:.{round_digits}f}" for score in ker_scores]
             results = [s.lstrip('0') if not leading_zero else s for s in results]
+            results = highlight_best(results, max_or_min)
             code += "\t\t& " + cm + " & " + " & ".join(results) + r"\\" + "\n"
     return code
 
@@ -106,8 +122,9 @@ def add_datasets_to_latex_table(
 
 def latex_table(arr:np.ndarray, #shape (n_datasets, 2, n_kernels), axis=1 is [conf, mahal]
           dataset_names:List[str],
-          round_digits:int, 
-          leading_zero:bool):
+          round_digits:int,
+          leading_zero:bool,
+          title:str):
     """Given dataset and kernel results, return string of LaTeX code 
     for a table
 
@@ -120,10 +137,11 @@ def latex_table(arr:np.ndarray, #shape (n_datasets, 2, n_kernels), axis=1 is [co
     """
     #Add start of table
     code = r"""
-    \begin{tabular}{lc||ccc|ccc|ccc|c}
+    \begin{tabular}{lc||ccc|cc|ccc|c}
         \toprule
-        \multirow{2}{*}{Dataset}   &  \multicolumn{10}{c}{SCORE TYPE} \\ 
-        \cline{3-12}
+        \multirow{2}{*}{Dataset}   &  \multicolumn{10}{c}{""" + title + r"} \\"
+    code += r"""
+        \cline{3-11}
                                 & & linear & RBF & poly 
                                 & $I_\text{RBF}$ & $I_\text{poly}$ 
                                 & $S_\text{lin}$ & $S_\text{RBF}$ & $S^\infty_\text{RBF}$ 
@@ -137,9 +155,9 @@ def latex_table(arr:np.ndarray, #shape (n_datasets, 2, n_kernels), axis=1 is [co
 
     #Add averages
     averages_auc = np.mean(arr, axis=0)
-    averages_rank = np.mean(np.argsort(arr, axis=2), axis=0)
-    arr_avgs = np.array([averages_auc, averages_rank])
-    code += add_datasets_to_latex_table(arr_avgs, ["Avg. AUC", "Avg. Rank"], round_digits, leading_zero)
+    averages_rank = np.mean(np.argsort(1/(arr+1), axis=2), axis=0) +1
+    code += add_datasets_to_latex_table([averages_auc], ["Avg. AUC"], round_digits, leading_zero, "max")
+    code += add_datasets_to_latex_table([averages_rank], ["Avg. Rank"], round_digits, leading_zero, "min")
 
     #Add the bottom
     code += "\t\t" + r"""\bottomrule
@@ -158,19 +176,38 @@ def print_latex_results(experiments:Dict, #given by validate_tslearn
         round_digits (int): Number of digits to round to.
         leading_zero (bool): Whether to keep leading zeros.
     """
+    #parse dict/json results into score array
     pr_results = []
     roc_results = []
     dataset_names = []
     for dataset_name, results in experiments.items():
-        #Results for each kernel:
         c_roc, c_pr = retrieve_kernel_AUCs(results["conf_results"], "conf")
         m_roc, m_pr = retrieve_kernel_AUCs(results["mahal_results"], "mahal")
         pr_results.append([c_pr, m_pr])
         roc_results.append([c_roc, m_roc])
         dataset_names.append(dataset_name)
     
-    pr_table = latex_table(np.array(pr_results), dataset_names, round_digits, leading_zero)
-    auc_table = latex_table(np.array(roc_results), dataset_names, round_digits, leading_zero)
+    #rename datasets
+    new_dataset_names = {'Epilepsy':"EP", 
+                        'EthanolConcentration':"EC",
+                        'FingerMovements':"FM",
+                        'HandMovementDirection':"HMD",
+                        'Heartbeat':"HB",
+                        'MotorImagery':"MI",
+                        'NATOPS':"NATO",
+                        'PEMS-SF':"PEMS",
+                        'RacketSports':"RS", 
+                        'SelfRegulationSCP1':"SRS1", 
+                        'PenDigits':"PD",
+                        'PhonemeSpectra':"PS", 
+                        'LSST':"LSST",
+                        }
+    dataset_names = [new_dataset_names[name] if name in new_dataset_names.keys() else name
+                     for name in dataset_names]
+    
+    #produce the LaTeX tables
+    pr_table = latex_table(np.array(pr_results), dataset_names, round_digits, leading_zero, "Precision-Recall AUC")
+    auc_table = latex_table(np.array(roc_results), dataset_names, round_digits, leading_zero, "ROC AUC")
     print("PR LaTeX table:")
     print(pr_table)
     print("\n\n\n\n\nROC_AUC LaTeX table:")
