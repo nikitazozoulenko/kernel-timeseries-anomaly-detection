@@ -157,27 +157,29 @@ def rbf_kernel_gram(X:np.ndarray,
 
 def poly_kernel_gram(X:np.ndarray, 
                      Y:np.ndarray,
-                     p:float, #eg 2 or 3
+                     p:int = 2, #eg 2 or 3
+                     b:float = 1.0,
                      diag:bool = False,
                      divide_by_dims:bool = True,
                      custom_factor:Optional[float] = None,):
-    """Computes the polynomial kernel (<x_i, y_j> + 1)^p.
+    """Computes the polynomial kernel (<x_i, y_j> + b)^p.
     The inputs dimensions can only differ in the first axis.
     
     Args:
         X (np.ndarray): Shape (N1, ... , d).
         Y (np.ndarray): Shape (N2, ... , d).
-        p (float): Polynomial degree.
+        p (int): Polynomial degree.
         diag (bool): If True, computes the diagonal of the gram matrix.
         divide_by_dims (bool): If True, normalizes the norm by the dimension d.
         custom_factor (Optional[float]): If not None, ignores 'divide_by_dims' and
                                  multiplies the result by this factor instead.
+        b (float): Polynomial kernel parameter.
 
     Returns:
         np.ndarray: Array of shape (N1, N2, ...) or (N1, ...) if diag=True.
     """
     xy = linear_kernel_gram(X, Y, diag, divide_by_dims, custom_factor)
-    return (xy + 1)**p
+    return (xy + b)**p
 
 
 #######################################################################################
@@ -222,7 +224,7 @@ def integral_kernel_gram(
         X:List[np.ndarray],
         Y:List[np.ndarray],
         static_kernel_gram:Callable, #either linear_kernel_gram or rbf_kernel_gram with "diag" argument
-        fixed_length:bool,
+        fixed_length:bool = True,
         sym:bool = False,
         n_jobs:int = 1,
         verbose:bool = False,

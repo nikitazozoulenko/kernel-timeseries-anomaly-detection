@@ -141,7 +141,6 @@ def aucs_to_objective(aucs:np.ndarray): #shape (M, 2, 2)
 def eval_1_paramdict_1_fold(fold:tuple,
                             class_to_test:Any,
                             param_dict:Dict[str, Any],
-                            fixed_length:bool,
                             min_fold_size:int,
                             n_jobs_gram:int=1,
                             verbose:bool=False,
@@ -152,7 +151,6 @@ def eval_1_paramdict_1_fold(fold:tuple,
         fold (_type_): _description_
         class_to_test (_type_): _description_
         param_dict (_type_): _description_
-        fixed_length (_type_): _description_
         min_fold_size (_type_): _description_
 
     Returns:
@@ -169,7 +167,7 @@ def eval_1_paramdict_1_fold(fold:tuple,
         aucs = np.zeros( (min_fold_size, 2) )
         raw_aucs = run_single_kernel_single_label(X_train, y_train, X_val, y_val,
                             class_to_test, param_dict,
-                            fixed_length, SVD_threshold,
+                            SVD_threshold,
                             SVD_max_rank, verbose,
                             return_all_levels=return_all_levels,
                             n_jobs=n_jobs_gram,
@@ -182,8 +180,8 @@ def eval_1_paramdict_1_fold(fold:tuple,
 
         # Obtain grams once instead of MAX_ORDER times
         corpus, test = get_corpus_and_test(X_train, y_train, X_val, 
-                                    class_to_test, fixed_length)
-        vv_grams, uv_grams = calc_grams(corpus, test, param_dict, fixed_length, 
+                                    class_to_test)
+        vv_grams, uv_grams = calc_grams(corpus, test, param_dict, 
                                         sig_kernel_only_last=False, n_jobs=n_jobs_gram,
                                         verbose=verbose)
         
@@ -194,7 +192,7 @@ def eval_1_paramdict_1_fold(fold:tuple,
             raw_aucs = run_single_kernel_single_label(X_train, 
                             y_train, X_val, y_val,
                             class_to_test, param_dict,
-                            fixed_length, SVD_threshold,
+                            SVD_threshold,
                             SVD_max_rank, verbose, vv, uv,
                             return_all_levels=return_all_levels,
                             n_jobs=n_jobs_gram,)
@@ -208,7 +206,6 @@ def eval_repeats_folds(kernel_name:str,
                 repeats_and_folds:List[List[tuple]],
                 hyperparams:List[Dict[str, Any]],  #List of {name : hyperparam_value}
                 class_to_test,
-                fixed_length:bool,
                 n_jobs_repeats:int = 1,
                 n_jobs_gram:int = 1,
                 verbose:bool = False,
@@ -229,7 +226,7 @@ def eval_repeats_folds(kernel_name:str,
         #loop over repeats and folds
         repeat_scores = Parallel(n_jobs=n_jobs_repeats)(
             delayed(eval_1_paramdict_1_fold)(fold, class_to_test, param_dict, 
-                            fixed_length, min_fold_size, n_jobs_gram, verbose)
+                            min_fold_size, n_jobs_gram, verbose)
             for repeats in repeats_and_folds
             for fold in repeats
         )
@@ -284,7 +281,6 @@ def cv_given_dataset(X:List,                #Training Dataset
                     y:np.array,             #Training class labels
                     unique_labels:np.array, #Unique class labels
                     kernel_names:List[str],
-                    fixed_length:bool,
                     k:int = 4,                  #k-fold cross validation
                     n_repeats:int = 10,         #repeats of k-fold CV
                     n_jobs_repeats:int = 1,
@@ -310,7 +306,7 @@ def cv_given_dataset(X:List,                #Training Dataset
         t0 = time.time()
         for label in tqdm(unique_labels, desc = f"Label for {kernel_name}"):
             scores = eval_repeats_folds(kernel_name, repeats_and_folds,
-                                        hyperparams, label, fixed_length,
+                                        hyperparams, label,
                                         n_jobs_repeats, n_jobs_gram, verbose)
             c_param_dict, m_param_dict = choose_best_hyperparam(scores, hyperparams)
             c_labelwise_param_dicts[label] = c_param_dict
@@ -346,7 +342,7 @@ def cv_tslearn(dataset_names:List[str],
         t0 = time.time()
         c_kernelwise_param_dicts, m_kernelwise_param_dicts = cv_given_dataset(
                                                 X_train, y_train, unique_labels, 
-                                                kernel_names, True, k, n_repeats, #fixed_length = True
+                                                kernel_names, k, n_repeats,
                                                 n_jobs_repeats, n_jobs_gram, verbose)
         t1 = time.time()
         print(f"Time taken for dataset {dataset_name}:", t1-t0, "seconds\n\n\n")
