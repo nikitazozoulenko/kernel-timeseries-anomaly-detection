@@ -12,7 +12,7 @@ import sys
 import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from models.conformance import BaseclassConformanceScore, stream_to_torch
+from models.conformance import BaseclassConformanceScore
 from models.kernels import linear_kernel_gram, rbf_kernel_gram, poly_kernel_gram
 from models.kernels import pairwise_kernel_gram, integral_kernel_gram, sig_kernel_gram
 from experiments.normalize_streams import normalize_streams
@@ -83,7 +83,16 @@ def case_gak(train:List[np.ndarray],
                                     n_jobs=n_jobs, verbose=verbose)
     return vv_gram, uv_gram
 
- 
+
+def stream_to_torch(
+        stream:np.ndarray, 
+        ):
+    """Transforms a raw stream of shape (T, d) into a torch tensor."""
+    N_i, new_d = stream.shape
+    tensor = torch.from_numpy(stream).reshape(1, N_i, new_d).detach()
+    return tensor
+
+
 def case_sig_pde(train:List[np.ndarray], 
                  test:List[np.ndarray], 
                  dyadic_order:int = 5,
@@ -162,7 +171,7 @@ def calc_grams(train:List[np.ndarray],
         return case_poly(train, test, param_dict["p"], 1.0 - T/3) #minus T/3 to account for time augmentation. Only matters for flattened poly kernel
 
     elif kernel_name == "gak":
-        return case_gak(train, test, n_jobs, verbose, param_dict["gak_factor"])
+        return case_gak(train, test, True, n_jobs, verbose, param_dict["gak_factor"])
     
     if kernel_name == "truncated sig":
         ker = lambda X, Y: linear_kernel_gram(X, Y)
@@ -324,7 +333,7 @@ def run_all_kernels(X_train:List[np.ndarray],
         Dict[str, np.ndarray]: Dictionary of AUC scores for all kernels.
     """
     kernel_results = {}
-    for kernel_name, labelwise_dict in kernelwise_dict.items():
+    for kernel_name, labelwise_dict in tqdm(kernelwise_dict.items()):
         print("Kernel:", kernel_name)
         # 2 methods (conf, mahal), 2 metrics (roc_auc, pr_auc), C classes
         aucs = np.zeros( (2, 2, len(unique_labels)) ) 

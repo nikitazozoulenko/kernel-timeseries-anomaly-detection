@@ -2,13 +2,16 @@ import numpy as np
 from typing import List, Dict, Any, Optional, Tuple, Literal
 
 
-def z_score_normalize(X:np.ndarray,
+def z_score_normalize(train:np.ndarray, 
+                      test:np.ndarray,
                       EPS:float = 0.0001):
-    """Normalize X across axis=0 using mean and std"""
-    mean = np.mean(X, axis=0, keepdims=True)
-    std = np.std(X, axis=0, keepdims=True)
-    X = (X - mean) / (std+EPS)
-    return X
+    """Normalize train and test across axis=0 using mean and std
+    of train set only."""
+    mean = np.mean(train, axis=0, keepdims=True)
+    std = np.std(train, axis=0, keepdims=True)
+    train = (train - mean) / (std+EPS)
+    test = (test - mean) / (std+EPS)
+    return train, test
 
 
 def check_ndim_more(X:np.ndarray, 
@@ -92,7 +95,7 @@ def normalize_streams(train:np.ndarray,
     """Inputs are 3D arrays of shape (N, T, d) where N is the number of time series, 
     T is the length of each time series, and d is the dimension of each time series.
     Performs average pooling to reduce the length of the time series to at most max_T,
-    then z-score normalization, basepoint addition, and time augmentation.
+    z-score normalization, basepoint addition, and time augmentation.
     """
     # Make time series length smaller
     _, T, d = train.shape
@@ -102,11 +105,10 @@ def normalize_streams(train:np.ndarray,
         test = avg_pool_time(test, pool_size)
 
     # Normalize data by training set mean and std
-    train = z_score_normalize(train)
-    test = z_score_normalize(test)
+    train, test = z_score_normalize(train, test)
 
     # clip to avoid numerical instability for poly and linear sigs
-    c = 5
+    c = 5.0
     train = np.clip(train, -c, c)
     test = np.clip(test, -c, c)
 
