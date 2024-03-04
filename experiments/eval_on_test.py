@@ -19,8 +19,15 @@ def validate_tslearn(
         n_jobs:int = 1, 
         verbose:bool=False,
         ):
-    """Validates the best models from cross validation on the
-    tslearn datasets using kernel conformance scores."""
+    """Validates the anomaly detection models on the test sets of tslearn,
+    given cross validation hyperparameter search results.
+    
+    Args:
+        dataset_kernel_label_paramdict (Dict): The cross validation results, 
+            as returned by 'experiments.cv_tslearn'.
+        n_jobs (int): The number of jobs to run in parallel for Gram calculations.
+        verbose (bool): Whether to print progress messages."""
+    
     print("Start validation on test sets")
     experiments = {}
     for dataset_name, results in dataset_kernel_label_paramdict.items():
@@ -56,7 +63,16 @@ def validate_tslearn(
 
 
 
-def print_test_results(experiments, round_digits=3):
+def print_test_results(experiments:Dict[str, Dict[str, Any]], 
+                       round_digits:int = 3):
+    """Prints the test results in a human readable format.
+
+    Args:
+        experiments (Dict): The results of the test experiments, 
+                            as returned by 'validate_tslearn'.
+        round_digits (int): The number of digits to round the
+                            results to.
+    """
     print("Test Results\n")
     for dataset_name, results in experiments.items():
         #Dataset:
