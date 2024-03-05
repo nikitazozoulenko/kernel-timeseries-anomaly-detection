@@ -1,7 +1,4 @@
 import numpy as np
-import iisignature
-import sigkernel
-import torch
 from typing import List, Optional, Dict, Set, Callable, Any
 import sys
 import os

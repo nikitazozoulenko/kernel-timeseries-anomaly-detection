@@ -125,18 +125,17 @@ def get_hyperparam_combinations(kernel_name:str):
 
 def get_hyperparam_ranges(kernel_name:str):
     """ Returns a dict of hyperparameter ranges for the specified kernel."""
-    max_poly_p = 5
-    n_sigmas = 5
+    max_poly_p = 6
     dyadic_order = 2
     ranges = {}
 
     #static kernel params. Note that sig and integral kernels also use this
     if "rbf" in kernel_name:
-        ranges["sigma"] = np.array([10**k for k in np.linspace(-3, 1, n_sigmas)])
+        ranges["sigma"] = np.array([10**k for k in [-4, -3, -2, 1, 0, 1, 2]])
     elif "poly" in kernel_name:
         ranges["p"] = np.arange(2, max_poly_p+1)
     elif "gak" in kernel_name:
-        ranges["gak_factor"] = np.array([0.333, 1, 3])
+        ranges["gak_factor"] = np.array([0.111, 0.333, 1, 3, 9])
 
     if "pde" in kernel_name:
         ranges["dyadic_order"] = np.array([dyadic_order], dtype=np.int64)
