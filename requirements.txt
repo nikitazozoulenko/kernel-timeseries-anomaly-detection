@@ -5,15 +5,12 @@ plotly
 nbformat
 matplotlib
 tqdm
-iisignature
 joblib
-requests
 scikit-learn
-aeon
 tslearn
-h5py
 cython==0.29.37
 numba
-# torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-# sigkernel pip install git+https://github.com/crispitagorico/sigkernel.git
-# Ksig  pip install git+https://github.com/tgcsaba/ksig.git   #note, requires cupy which requires a CUDA installation
+torch 
+torchvision 
+torchaudio
+git+https://github.com/crispitagorico/sigkernel.git
