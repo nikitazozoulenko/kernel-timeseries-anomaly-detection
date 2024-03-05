@@ -142,6 +142,8 @@ class BaseclassConformanceScore():
 ############################################################################################## \/
 
 
+# Note: Can be more efficient to consider covariance matrix X^t X 
+# instead of the inner product Gram matrix X X^t.
 class RnConformanceScore(BaseclassConformanceScore):
     def __init__(self, 
                  corpus:np.ndarray, 

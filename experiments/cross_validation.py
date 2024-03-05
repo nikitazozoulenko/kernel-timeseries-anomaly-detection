@@ -127,8 +127,8 @@ def get_hyperparam_ranges(kernel_name:str):
     """ Returns a dict of hyperparameter ranges for the specified kernel."""
     max_poly_p = 5
     n_sigmas = 5
-    ranges = {}
     dyadic_order = 2
+    ranges = {}
 
     #static kernel params. Note that sig and integral kernels also use this
     if "rbf" in kernel_name:
