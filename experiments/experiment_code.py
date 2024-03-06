@@ -174,7 +174,7 @@ def calc_grams(train:List[np.ndarray],
         return case_gak(train, test, True, n_jobs, verbose, param_dict["gak_factor"])
     
     if kernel_name == "truncated sig":
-        ker = lambda X, Y: linear_kernel_gram(X, Y)
+        ker = lambda X, Y: linear_kernel_gram(X, Y, custom_factor = 1/d * param_dict["scale"])
         return case_truncated_sig(train, test, param_dict["order"], 
                                   ker, sig_kernel_only_last, 
                                   n_jobs, verbose)

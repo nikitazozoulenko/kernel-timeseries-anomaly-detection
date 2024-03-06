@@ -139,7 +139,8 @@ def get_hyperparam_ranges(kernel_name:str):
 
     if "pde" in kernel_name:
         ranges["dyadic_order"] = np.array([dyadic_order], dtype=np.int64)
-
+    elif "truncated sig"==kernel_name:
+        ranges["scale"] = np.array([0.25, 0.5, 1, 2, 4])
     return ranges
     
 
@@ -473,6 +474,7 @@ if __name__ == "__main__":
         'PhonemeSpectra',              # N_corpus = 85
         'RacketSports',                # N_corpus = 38
         'SelfRegulationSCP1',          # N_corpus = 134
+        'SelfRegulationSCP2',          # N_corpus = 100
         ])
     parser.add_argument("--kernel_names", nargs="+", type=str, default=[
                 "linear",
