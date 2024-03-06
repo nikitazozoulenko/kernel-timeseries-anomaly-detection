@@ -59,8 +59,8 @@ def pairwise_kernel_gram(X:List,
 def _check_gram_dims(X:np.ndarray, 
                      Y:np.ndarray,
                      diag:bool = False,):
-    """Stacks the input into a Gram matrix shape (N1, N2, ..., d) or
-    into a diagonal Gram shape (N1, ..., d) if diag and N1==N2.
+    """Checks the dimensions of the inputs for the static kernel Gram matrix.
+    The inputs dimensions can only differ in the first axis.
 
     Args:
         X (np.ndarray): Shape (N1, ... , d).
