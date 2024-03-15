@@ -6,11 +6,10 @@ import sys
 import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from kernels.abstract_base import StaticKernel, TimeSeriesKernel
-from kernels.static_kernels import LinearKernel, RBFKernel, PolyKernel
-from kernels.sig_trunc import TruncSigKernel
-from kernels.gak import GlobalAlignmentKernel
-
+from kernels import StaticKernel, TimeSeriesKernel
+from kernels import LinearKernel, RBFKernel, PolyKernel
+from kernels import TruncSigKernel, SigPDEKernel, StaticIntegralKernel, FlattenedStaticKernel, GlobalAlignmentKernel, ReservoirKernel
+from kernels import sigma_gak
 
 ################################################################################################## |
 ## Base class to inherit. Works for any Hilbert space and any inner product given a Gram matrix ## |
@@ -239,11 +238,6 @@ if __name__ == "__main__":
     import time
     from tslearn.datasets import UCR_UEA_datasets
     from models.stream_transforms import normalize_streams
-    from kernels.static_kernels import LinearKernel, RBFKernel, PolyKernel
-    from kernels.sig_trunc import TruncSigKernel
-    from kernels.gak import GlobalAlignmentKernel, sigma_gak
-    from kernels.integral import StaticIntegralKernel
-    from kernels.flattened_static import FlattenedStaticKernel
 
     #get corpus, in-sample, and out-of-sample
     X_train, y_train, X_test, y_test = UCR_UEA_datasets().load_dataset("BasicMotions")
