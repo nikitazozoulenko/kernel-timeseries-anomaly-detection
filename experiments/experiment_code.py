@@ -63,12 +63,12 @@ def calc_grams(corpus:Tensor,
                                    normalize=param_dict["normalize"])
     
     elif kernel_name == "trunc sig linear":
-        ker = TruncSigKernel(LinearKernel(scale = 1/d),
+        ker = TruncSigKernel(LinearKernel(scale = 1/d * param_dict["scale"]),
                              trunc_level=param_dict["order"], only_last=sig_kernel_only_last,
                              normalize=param_dict["normalize"])
     
     elif kernel_name == "trunc sig rbf":
-        ker = TruncSigKernel(RBFKernel(np.sqrt(d)*param_dict["sigma"]),
+        ker = TruncSigKernel(RBFKernel(np.sqrt(d)*param_dict["sigma"], scale=param_dict["scale"]),
                              trunc_level=param_dict["order"], only_last=sig_kernel_only_last,
                              normalize=param_dict["normalize"])
     

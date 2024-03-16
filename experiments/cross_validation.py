@@ -65,6 +65,7 @@ def get_hyperparam_ranges(kernel_name:str):
     if "trunc sig" in kernel_name:
         MAX_ORDER = 10
         ranges["order"] = np.array([MAX_ORDER])
+        ranges["scale"] = np.array([1/2, 1, 2])
 
     #For all kernels, we can normalize or not
     if "gak" in kernel_name or "pde sig linear" in kernel_name:
@@ -166,7 +167,6 @@ def eval_1_paramdict_1_fold(X_train,
                          for vv, uv in zip(vv_grams.permute(2,0,1), 
                                            uv_grams.permute(2,0,1))],
                          axis=-1)
-
     return objectives # shape (len(alphas), len(thresholds), 2) or (len(alphas), len(thresholds), 2, n_truncs) for truncated sig
 
 
@@ -247,7 +247,7 @@ def choose_best_hyperparam(scores_conf_mahal:np.ndarray,
     c_m_param_dicts = [{}, {}]
     for i in range(2):
         #scores_conf_mahal shape (n_hyperparams, alphas, thresholds, 2, (opt. dim: n_truncs))
-        scores = scores_conf_mahal[:,:,i] # shape (n_hyperparams, alphas, thresholds, (opt. dim: n_truncs))
+        scores = scores_conf_mahal[..., i] # shape (n_hyperparams, alphas, thresholds, (opt. dim: n_truncs))
         dims = np.arange(scores.ndim) 
         max_params = np.max(scores, axis=tuple(dims[1:]) )
         best_param_idx = np.argmax(max_params)
@@ -429,7 +429,7 @@ def print_cv_results(
             print("\nEnd dataset \n\n\n")
 
 
-
+#python3 experiments/cross_validation.py  --dataset_names "Epilepsy" --k_folds 5 --n_repeats 5 --save_path "Data/cv_Epilepsy.pkl"
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Run this script to run cross validation on ts-learn datasets.")
@@ -458,8 +458,6 @@ if __name__ == "__main__":
 
                 "trunc sig linear",
                 "trunc sig rbf",
-
-                "pde sig linear", #normalized only
                 "pde sig rbf",
 
                 "gak", #normalized only

@@ -1,8 +1,7 @@
 import numpy as np
-from tqdm import tqdm
 from typing import List, Optional, Dict, Set, Callable, Any
-import tslearn
-import tslearn.metrics
+import torch
+from torch import Tensor
 from tslearn.datasets import UCR_UEA_datasets
 import pickle
 import time
@@ -11,13 +10,12 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from experiments.experiment_code import run_all_kernels, print_dataset_stats
 from experiments.utils import save_to_pickle, join_dicts_from_pickle_paths
-from experiments.cross_validation import print_cv_results
 
 
 def validate_tslearn(
         dataset_kernel_label_paramdict : Dict[str, Dict[str, Dict[str, Any]]],
-        n_jobs:int = 1, 
         verbose:bool=False,
+        device:str = "cuda",
         ):
     """Validates the anomaly detection models on the test sets of tslearn,
     given cross validation hyperparameter search results.
@@ -26,7 +24,9 @@ def validate_tslearn(
         dataset_kernel_label_paramdict (Dict): The cross validation results, 
             as returned by 'experiments.cv_tslearn'.
         n_jobs (int): The number of jobs to run in parallel for Gram calculations.
-        verbose (bool): Whether to print progress messages."""
+        verbose (bool): Whether to print progress messages.
+        device (str): The PyTorch device to run the models on.
+    """
     
     print("Start validation on test sets")
     experiments = {}
@@ -35,6 +35,8 @@ def validate_tslearn(
         # Load dataset
         print(dataset_name)
         X_train, y_train, X_test, y_test = UCR_UEA_datasets().load_dataset(dataset_name)
+        X_train = torch.from_numpy(X_train).to(device)
+        X_test = torch.from_numpy(X_test).to(device)
         unique_labels = np.unique(y_train)
         num_classes = len(unique_labels)
         N_train, T, d = X_train.shape
@@ -46,8 +48,7 @@ def validate_tslearn(
         c_kernelwise_dict = results["conf_results"]
         m_kernelwise_dict = results["mahal_results"]
         conf_results, mahal_results = (run_all_kernels(X_train, y_train, X_test, y_test, 
-                            unique_labels, kernelwise_dict,
-                            n_jobs=n_jobs, verbose=verbose)
+                            unique_labels, kernelwise_dict, verbose)
                             for kernelwise_dict in [c_kernelwise_dict, m_kernelwise_dict])
         experiments[dataset_name] = {"conf_results": conf_results, 
                                      "mahal_results": mahal_results, 
@@ -101,7 +102,6 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Run this script to run cross validation on ts-learn datasets.")
     parser.add_argument("--cv_datasetwise_dict_paths", nargs="+", type=str, default=["Data/cv_results.pkl"])
-    parser.add_argument("--n_jobs_gram", type=int, default=1)
     parser.add_argument("--save_path", type=str, default=f"Data/eval_{int(time.time()*1000)}.pkl")
     args = vars(parser.parse_args())
     print("Args:", args)
@@ -112,7 +112,6 @@ if __name__ == "__main__":
     #run test
     test_results = validate_tslearn(
             dataset_kernel_label_paramdict,
-            n_jobs = args["n_jobs_gram"],
                 )
 
     #save test results
