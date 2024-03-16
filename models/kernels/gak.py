@@ -102,7 +102,7 @@ class GlobalAlignmentKernel(TimeSeriesKernel):
     def __init__(
             self,
             static_kernel:StaticKernel = RBFKernel(),
-            max_batch:int = 1000,
+            max_batch:int = 10000,
             normalize:bool = True,
         ):
         """

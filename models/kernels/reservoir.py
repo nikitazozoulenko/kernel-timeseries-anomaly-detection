@@ -15,7 +15,7 @@ class ReservoirKernel(TimeSeriesKernel):
             self,
             tau:float,
             gamma:float,
-            max_batch:int = 1000,
+            max_batch:int = 10000,
             normalize:bool = False,
         ):
         """

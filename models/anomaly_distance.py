@@ -42,6 +42,10 @@ class BaseclassAnomalyScore():
         b = torch.mean(a)
         A = ( B - a[None] - a[:, None] + b) / N #<f_i, f_j>
 
+        #if A=0, add eps I to A to avoid throwing errors
+        if torch.allclose(A, torch.zeros_like(A)):
+            A = A + torch.eye(N, dtype = A.dtype, device=A.device) * 1e-6
+
         #SVD decomposition is equal to spectral decomposition
         U, S, Ut = torch.linalg.svd( A )
         M = torch.sum(S > SVD_threshold)
@@ -64,12 +68,13 @@ class BaseclassAnomalyScore():
     def _conformance_score(self, 
                            inner_prod_y_en:Tensor, # shape (..., N)
                            return_all_levels:bool,
+                           alpha:float,
                            ):
         """Calculates the nearest neighbour variance distance of a new sample 'y' given 
         array of inner products <y, e_n> of eigenvectors of the covariance operator."""
         # d[l,n,m] = <y_l-x_n, e_m>^2 / S_m
         d = inner_prod_y_en[..., None,:]-self.E[:, :] #shape (..., N, M)
-        d = d**2 / self.S[None, :] #shape (..., N, M)
+        d = d**2 * self.S[None, :] / (alpha + self.S[None, :])**2 #shape (..., N, M)
 
         # cumsum[l,n,m] = ||y_l-x_n||^2_{var-norm} at m'th threshold level
         cumsum = torch.cumsum(d, axis=-1) #shape (..., N, M)
@@ -85,12 +90,13 @@ class BaseclassAnomalyScore():
     def _mahalanobis_distance(self,
                               inner_prod_y_en:Tensor, # shape (..., N)
                               return_all_levels:bool,
+                              alpha:float,
                               ):
         """Calculates the Mahalanobis distance of a new sample 'y' given
         array of inner products <y, e_n> of eigenvectors of the covariance operator."""
         #d[l,m] = <y_l - xbar, e_m>^2 / S_m
         d = inner_prod_y_en-self.c #shape (..., M)
-        d = d**2 / self.S #shape (..., M)
+        d = d**2 * self.S / (alpha + self.S)**2 #shape (..., M)
 
         # cumsum[l,m] = ||y_l-xbar||^2_{var-norm} at m'th threshold level
         sqrt_cumsum = torch.sqrt(torch.cumsum(d, axis=-1)) #shape (..., M)
@@ -104,7 +110,8 @@ class BaseclassAnomalyScore():
     def _anomaly_distance(self, 
                           inner_prod_y_xn : Tensor,
                           method:str = "mahalanobis",
-                          return_all_levels:bool = False
+                          return_all_levels:bool = False,
+                          alpha:float = 0,
                           ):
         """ Returns the anomaly distance of a new sample 'y' with respect to the 
             corpus {x_1, ..., x_N}. Uses either conformance score (nearest neighbour 
@@ -116,6 +123,7 @@ class BaseclassAnomalyScore():
             method (str): Either "mahalanobis" or "conformance".
             return_all_levels (bool): If true, returns the anomaly distance at all 
                                       threshold levels.
+            alpha (float): Regularizing smoothing parameter for the variance distance.
         
         Returns Tensor: Anomaly distance of shape (...), (2, ...), (..., M), or 
                             (2, ..., M) depending on 'method' and 'return_all_levels'.
@@ -127,12 +135,12 @@ class BaseclassAnomalyScore():
         p = (p @ self.U) / torch.sqrt(N*self.S) #shape (..., M)
 
         if method == "conformance":
-            return self._conformance_score(p, return_all_levels)
+            return self._conformance_score(p, return_all_levels, alpha)
         elif method == "mahalanobis":
-            return self._mahalanobis_distance(p, return_all_levels)
+            return self._mahalanobis_distance(p, return_all_levels, alpha)
         elif method == "both":
-            return torch.stack((self._conformance_score(p, return_all_levels), 
-                            self._mahalanobis_distance(p,return_all_levels)))
+            return torch.stack((self._conformance_score(p, return_all_levels, alpha), 
+                            self._mahalanobis_distance(p,return_all_levels, alpha)))
         else:
             msg = "Argument 'method' must be in ['mahalanobis', 'conformance', 'both']."
             raise RuntimeError(msg)
@@ -169,6 +177,7 @@ class KernelizedAnomalyScore(BaseclassAnomalyScore):
     
     def __call__(self, 
                  new_sample:Tensor,
+                 alpha:float = 0,
                  method:str = "conformance",
                  ) -> Tensor:
         """ Returns the kernelized anomaly distance with respect to the corpus.
@@ -177,6 +186,7 @@ class KernelizedAnomalyScore(BaseclassAnomalyScore):
 
         Args:
             new_sample: Time series of shape (T, d).
+            alpha (float): Regularizing smoothing parameter for the variance distance.
             method (str): Either "mahalanobis", "conformance", or "both".
 
         Returns:
@@ -184,7 +194,7 @@ class KernelizedAnomalyScore(BaseclassAnomalyScore):
         """
         # kernel as inner product
         inner_products = self.ts_kernel(new_sample, self.corpus)
-        return self._anomaly_distance(inner_products, method)
+        return self._anomaly_distance(inner_products, method, alpha=alpha)
     
 
 ############################################################################################## |
@@ -215,6 +225,7 @@ class RdAnomalyScore(BaseclassAnomalyScore):
     
     def __call__(self, 
                  y:Tensor,
+                 alpha:float = 0,
                  method:str = "conformance"
                  ):
         """ Returns the anomaly distance of 'y' with respect to the corpus.
@@ -223,11 +234,12 @@ class RdAnomalyScore(BaseclassAnomalyScore):
 
         Args:
             y (Tensor): Feature vector of same dimension as the vectors in the corpus.
+            alpha (float): Regularizing smoothing parameter for the variance distance.
             method (str): Either "mahalanobis", "conformance", or "both".
         """
         # euclidean inner product
         inner_prod_y_xn = y @ self.corpus.T
-        return self._anomaly_distance(inner_prod_y_xn, method)
+        return self._anomaly_distance(inner_prod_y_xn, method, alpha=alpha)
 
 
 ############################################
@@ -248,6 +260,7 @@ if __name__ == "__main__":
     in_sample = test[y_test == normal_class][0]
     out_sample = test[y_test != normal_class][0]
     N, T, d = corpus.shape
+    alpha = 0.00001
 
     #create the time series kernel objects
     flat = FlattenedStaticKernel(LinearKernel())
@@ -265,8 +278,8 @@ if __name__ == "__main__":
     def anomaly_test(name, scorer, in_sample, out_sample):
         print("{}:".format(name))
         start = time.perf_counter()
-        print("Anomaly distance for new sample, same distribution:     ", scorer(in_sample))
-        print("Anomaly distance for new sample, different distribution:", scorer(out_sample))
+        print("Anomaly distance for new sample, same distribution:     ", scorer(in_sample, alpha))
+        print("Anomaly distance for new sample, different distribution:", scorer(out_sample, alpha))
         print("Time taken: {}\n\n".format(time.perf_counter()-start))
 
     anomaly_test("Flattened", flattened_scorer, in_sample.reshape(1, T*d), out_sample.reshape(1, T*d))

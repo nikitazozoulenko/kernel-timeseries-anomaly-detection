@@ -1,14 +1,16 @@
 import numpy as np
 from tqdm import tqdm
 from typing import List, Optional, Dict, Set, Callable, Any
-from joblib import Memory, Parallel, delayed
-import tslearn
-import tslearn.metrics
 from tslearn.datasets import UCR_UEA_datasets
+import torch
+from torch import Tensor
+from sklearn.model_selection import RepeatedStratifiedKFold
+
 import pickle
 import time
 import sys
 import os
+from pathlib import Path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from experiments.experiment_code import run_single_kernel_single_label, get_corpus_and_test
 from experiments.experiment_code import calc_grams, print_dataset_stats
@@ -16,96 +18,66 @@ from experiments.utils import save_to_pickle
 
 
 #######################################################################
-########################## Repeated k-folds ###########################
-#######################################################################
-
-
-def repeat_k_folds(X:List[Any],
-                y:np.ndarray,
-                k:int,
-                n_repeats:int,):
-    """Generates repeated k-folds for cross-validation, where each fold
-    is balanced the same as the original dataset.
-
-    Args:
-        X (List[Any]): Training data.
-        y (np.ndarray): Training class labels.
-        k (int): k-fold cross validation.
-        n_repeats (int): Repeats of k-fold CV.
-    """
-
-    repeats = [create_k_folds(X, y, k) for _ in range(n_repeats)]
-    return repeats
-
-
-
-def create_k_folds(X:List[Any],
-                y:np.ndarray,
-                k:int,):
-    """Generates balanced k-folds for cross-validation, where each fold
-    is balanced the same as the original dataset.
-    
-    Args:
-        X (List[Any]): Training data.
-        y (np.ndarray): Training class labels.
-        k (int): k-fold cross validation.
-    """
-
-    #is X numpy array?
-    is_numpy=True if isinstance(X, np.ndarray) else False
-
-    #shuffle data
-    indices = np.arange(len(X))
-    np.random.shuffle(indices)
-    X = [X[i] for i in indices]
-    y = np.array([y[i] for i in indices])
-    unique_labels = np.unique(y)
-
-    #split into classes
-    classwise = {label:[] for label in unique_labels}
-    for x, label in zip(X, y):
-        classwise[label].append(x)
-
-    #split into k-folds
-    classwise_folds = {}
-    for label, dataclass in classwise.items():
-        classwise_folds[label] = np.array_split(dataclass, k)
-    
-    #create folds
-    folds=[]
-    for i in range(k):
-        X_train = []
-        y_train = []
-        X_val = []
-        y_val = []
-        for label, dataclass in classwise_folds.items():
-            for j in range(k):
-                if j!=i:
-                    X_train.extend(dataclass[j])
-                    y_train.extend([label]*len(dataclass[j]))
-                else:
-                    X_val.extend(dataclass[j])
-                    y_val.extend([label]*len(dataclass[j]))
-
-        #convert to numpy if possible
-        if is_numpy:
-            X_train = np.array(X_train)
-            X_val = np.array(X_val)
-        y_train = np.array(y_train)
-        y_val = np.array(y_val)
-        folds.append([X_train, y_train, X_val, y_val])
-
-    return folds
-
-
-#######################################################################
 ################### Hyperparameter combinations #######################
 #######################################################################
 
 
+def str_to_original(val):
+    try:
+        return int(val)
+    except ValueError:
+        try:
+            return float(val)
+        except ValueError:
+            if val== 'True':
+                return True
+            elif val == 'False':
+                return False
+            else:
+                return val
+
+def get_hyperparam_ranges(kernel_name:str):
+    """ Returns a dict of hyperparameter ranges for the specified kernel."""
+
+    # Dict for hyperparameter ranges
+    ranges = {}
+
+    # Stream transforms for all kernels
+    ranges["basepoint"] = ["", "basepoint", "I_visibility", "T_visibility"]
+    ranges["time"] = ["", "time_enhance"]
+
+    # Specific to each state-space kernel
+    if "rbf" in kernel_name:
+        ranges["sigma"] = np.exp(np.linspace(-2, 3, 7))
+    elif "poly" in kernel_name:
+        ranges["p"] = np.array([2, 3, 4, 5, 6])
+
+    # Specific to each time series kernel
+    if "gak" in kernel_name:
+        ranges["gak_factor"] = np.exp(np.linspace(-2, 2, 5))
+    elif "pde" in kernel_name:
+        ranges["dyadic_order"] = np.array([3], dtype=np.int64)
+    elif "reservoir" in kernel_name:
+        ranges["tau"] = np.array([1/6]) #recall that we clipped by 5
+        ranges["gamma"] = np.exp(np.linspace(-4, -0.1, 20))
+    
+    #For trunc sig we get all orders up to MAX_ORDER for free
+    if "trunc sig" in kernel_name:
+        MAX_ORDER = 10
+        ranges["order"] = np.array([MAX_ORDER])
+
+    #For all kernels, we can normalize or not
+    if "gak" in kernel_name or "pde sig linear" in kernel_name:
+        ranges["normalize"] = np.array([True])
+    else:
+        ranges["normalize"] = np.array([True, False])
+
+    return ranges
+
+
+
 def get_hyperparam_combinations(kernel_name:str):
-    """Returns a dict of hyperparameter ranges and a list of all 
-    possible combinations of hyperparameters for the specified kernel"""
+    """Returns a list of param_dicts for the specified kernel."""
     ranges = get_hyperparam_ranges(kernel_name)
     values = ranges.values()
     keys = ranges.keys()
@@ -114,35 +86,13 @@ def get_hyperparam_combinations(kernel_name:str):
         #create array of all combinations
         meshgrid = np.meshgrid(*values)
         combinations = np.vstack([x.flatten() for x in meshgrid]).T
-
+        
         #convert to dict
-        dict_combinations = [dict(zip(keys, vals)) for vals in combinations]
+        dict_combinations = [dict(zip(keys, [str_to_original(val) for val in vals])) for vals in combinations]
         return dict_combinations
     else:
         return [{}]
 
-
-
-def get_hyperparam_ranges(kernel_name:str):
-    """ Returns a dict of hyperparameter ranges for the specified kernel."""
-    max_poly_p = 6
-    dyadic_order = 2
-    ranges = {}
-
-    #static kernel params. Note that sig and integral kernels also use this
-    if "rbf" in kernel_name:
-        ranges["sigma"] = np.array([10**k for k in [-4, -3, -2, 1, 0, 1, 2]])
-    elif "poly" in kernel_name:
-        ranges["p"] = np.arange(2, max_poly_p+1)
-    elif "gak" in kernel_name:
-        ranges["gak_factor"] = np.array([0.111, 0.333, 1, 3, 9])
-
-    if "pde" in kernel_name:
-        ranges["dyadic_order"] = np.array([dyadic_order], dtype=np.int64)
-    elif "truncated sig"==kernel_name:
-        ranges["scale"] = np.array([0.25, 0.5, 1, 2, 4])
-    return ranges
-    
 
 #######################################################################
 ######################### Cross Validation ############################
@@ -151,81 +101,84 @@ def get_hyperparam_ranges(kernel_name:str):
 
 def aucs_to_objective(aucs:np.ndarray): #shape (M, 2, 2)
     """Takes AUCs from 'run_single_kernel_single_label' and outputs the
-    objective for Cross Validation for both Conf and Mahal."""
-    aucs = np.sum(aucs, axis=2) # sum of ROC AUC and PR AUC
-    return aucs #shape (M, 2)
+    objective for Cross Validation for both Conf and Mahal.
+    
+    Args:
+        aucs (np.ndarray): AUC scores for conformance and mahalanobis distances,
+                    and for ROC and PR AUC, for each alpha and truncation level.
+                    Shape (len(alphas), len(thresholds), 2, 2).
+    
+    Returns:
+        np.ndarray: Objective for Cross Validation for both Conf and Mahal.
+                    Shape (len(alphas), len(thresholds), 2)."""
+    aucs = np.sum(aucs, axis=-1) # sum of ROC AUC and PR AUC
+    return aucs #shape (len(alphas), len(threhsolds), 2)
 
 
 
-def eval_1_paramdict_1_fold(fold:tuple,
+def eval_1_paramdict_1_fold(X_train, 
+                            y_train, 
+                            X_val, 
+                            y_val,
                             class_to_test:Any,
                             param_dict:Dict[str, Any],
-                            min_fold_size:int,
-                            n_jobs_gram:int=1,
+                            thresholds:np.ndarray,
+                            alphas:np.ndarray,
                             verbose:bool=False,
                             ):
     """Evaluates a single fold for a single hyperparameter configuration.
 
     Args:
-        fold (tuple): Training and validation data.
+        X_train (Tensor): Tensor of shape (N_train, T, d).
+        y_train (np.ndarray): 1-dim array of class labels.
+        X_val (Tensor): Tensor of shape (N_val, T, d).
+        y_val (np.ndarray): 1-dim array of class labels.
         class_to_test (Any): The normal class.
         param_dict (Dict[str, Any]): Hyperparameter configuration.
-        min_fold_size (int): Minimum size of the label class.
-        n_jobs_gram (int): Number of jobs for gram computation.
+        thresholds (np.ndarray): Thresholds for covariance operator eigenvalues.
         verbose (bool): Verbosity.
+    
+    Returns:
+        np.ndarray: Objective scores for conformance and mahalanobis distances,
+                    shape (len(alphas), len(thresholds), 2), or
+                    shape (len(alphas), len(thresholds), 2, n_truncs) for truncated sig.
     """
-    X_train, y_train, X_val, y_val = fold
-    SVD_threshold = 10e-10
-    SVD_max_rank = min(min_fold_size, 30)
-    return_all_levels = True
-
-    # Simple case for most methods
-    if "truncated sig" not in param_dict["kernel_name"]:
-        # aucs shape (M, 2, 2), M <= min_fold_size
-        aucs = np.zeros( (min_fold_size, 2) )
+    SVD_threshold = np.min(thresholds)
+    corpus, test = get_corpus_and_test(X_train, y_train, X_val, 
+                                class_to_test, param_dict)
+    vv_grams, uv_grams = calc_grams(corpus, test, param_dict, 
+                                    sig_kernel_only_last=False)
+    
+    def get_objective(vv, uv):
         raw_aucs = run_single_kernel_single_label(X_train, y_train, X_val, y_val,
                             class_to_test, param_dict,
-                            SVD_threshold,
-                            SVD_max_rank, verbose,
-                            return_all_levels=return_all_levels,
-                            n_jobs=n_jobs_gram,
-                            )
-        aucs[:len(raw_aucs)] = aucs_to_objective(raw_aucs)
+                            SVD_threshold, verbose,
+                            vv, uv, thresholds, alphas)
+        return aucs_to_objective(raw_aucs)
+    
+
+    # Simple case for most methods
+    if "trunc sig" not in param_dict["kernel_name"]:
+        objectives = get_objective(vv_grams, uv_grams)
     # Computationally efficient truncated signature case
-    else: 
-        MAX_ORDER = 10
-        param_dict["order"] = MAX_ORDER
+    else:
+        objectives = np.stack([get_objective(vv, uv) 
+                         for vv, uv in zip(vv_grams.permute(2,0,1), 
+                                           uv_grams.permute(2,0,1))],
+                         axis=-1)
 
-        # Obtain grams once instead of MAX_ORDER times
-        corpus, test = get_corpus_and_test(X_train, y_train, X_val, 
-                                    class_to_test)
-        vv_grams, uv_grams = calc_grams(corpus, test, param_dict, 
-                                        sig_kernel_only_last=False, n_jobs=n_jobs_gram,
-                                        verbose=verbose)
-        
-        # Store aucs for each truncation level
-        aucs = np.zeros((min_fold_size, 2, MAX_ORDER))
-        for idx, (vv, uv) in enumerate(zip(vv_grams, uv_grams)):
-
-            raw_aucs = run_single_kernel_single_label(X_train, 
-                            y_train, X_val, y_val,
-                            class_to_test, param_dict,
-                            SVD_threshold,
-                            SVD_max_rank, verbose, vv, uv,
-                            return_all_levels=return_all_levels,
-                            n_jobs=n_jobs_gram,)
-            aucs[:len(raw_aucs), :, idx] = aucs_to_objective(raw_aucs)
-
-    return aucs #auc shape (min_fold_size, 2) or (min_fold_size, 2, n_truncs) for truncated sig
+    return objectives # shape (len(alphas), len(thresholds), 2) or (len(alphas), len(thresholds), 2, n_truncs) for truncated sig
 
 
 
-def eval_repeats_folds(kernel_name:str,
-                repeats_and_folds:List[List[tuple]],
+def eval_repeats_folds(X:Tensor,
+                       y:np.ndarray,
+                rskf:RepeatedStratifiedKFold,
+                kernel_name:str,
                 hyperparams:List[Dict[str, Any]],  #List of {name : hyperparam_value}
-                class_to_test,
-                n_jobs_repeats:int = 1,
-                n_jobs_gram:int = 1,
+                class_to_test:Any,
+                thresholds:np.ndarray,
+                alphas:np.ndarray,
                 verbose:bool = False,
                 ):
     """Evaluates the performance of the given hyperparameters on the 
@@ -233,44 +186,51 @@ def eval_repeats_folds(kernel_name:str,
     AUC scores for each hyperparameter configuration.
 
     Args:
+        X (Tensor): Tensor of shape (N, T, d).
+        y (np.ndarray): 1-dim array of class labels.
+        rskf (RepeatedStratifiedKFold): Sklearn fold generator.
         kernel_name (str): The name of the kernel.
-        repeats_and_folds (List[List[tuple]]): Repeated k-folds.
         hyperparams (List[Dict[str, Any]]): List of hyperparameter configurations.
         class_to_test (Any): The normal class.
-        n_jobs_repeats (int): Number of jobs for repeats.
-        n_jobs_gram (int): Number of jobs for gram computation.
         verbose (bool): Verbosity.
+    
+    Returns:
+        np.ndarray: Objectives scores for each hyperparameter configuration.
+                    Shape (n_hyperparams, len(alphas), len(thresholds), 2), or
+                    shape (n_hyperparams, len(alphas), len(thresholds), 2, n_truncs)
     """
-
-    #calc minimum size of the label class
-    min_fold_size = min([len(np.where(y_train==class_to_test)[0]) 
-                            for (_, y_train, _, _) in repeats_and_folds[0]])
+    fold_indices = list(rskf.split(X,y))
 
     #for each parameter:
     scores = []
-    for param_dict in hyperparams:
+    for i, param_dict in enumerate(hyperparams):
         param_dict["kernel_name"] = kernel_name
         param_dict["normal_class_label"] = class_to_test
 
         #loop over repeats and folds
-        repeat_scores = Parallel(n_jobs=n_jobs_repeats)(
-            delayed(eval_1_paramdict_1_fold)(fold, class_to_test, param_dict, 
-                            min_fold_size, n_jobs_gram, verbose)
-            for repeats in repeats_and_folds
-            for fold in repeats
-        )
-        #make shape consistent.
-        scores.append(repeat_scores)
-    
+        folds = []
+        for train_idx, val_idx in fold_indices:
+            X_train, y_train = X[train_idx], y[train_idx]
+            X_val, y_val = X[val_idx], y[val_idx]
+            obj = eval_1_paramdict_1_fold(
+                            X_train, y_train, X_val, y_val,
+                            class_to_test, param_dict, 
+                            thresholds, alphas, verbose)
+            folds.append(obj)
+
+        scores.append(folds)
+
     #average across repeats and folds
-    scores = np.array(scores)
-    scores = np.mean(scores, axis=(1))
-    return scores #shape (n_hyperparams, min_fold_size, 2, (opt. dim: n_truncs))
+    scores = np.array(scores) # shape (n_hyperparams, n_folds_repeats, len(alphas), len(thresholds), 2, (opt. dim: n_truncs))
+    scores = np.mean(scores, axis=1)
+    return scores #shape (n_hyperparams, len(alphas), len(thresholds), 2, (opt. dim: n_truncs))
 
 
 
 def choose_best_hyperparam(scores_conf_mahal:np.ndarray,
                            hyperparams:List[Dict[str, Any]],
+                           thresholds:np.ndarray,
+                           alphas:np.ndarray,
                         ):
     """Chooses the best hyperparameter configuration based on the AUC 
     scores outputed from 'eval_repeats_folds'.
@@ -278,48 +238,53 @@ def choose_best_hyperparam(scores_conf_mahal:np.ndarray,
     Args:
         scores_conf_mahal (np.ndarray): AUC scores for each hyperparameter configuration
                                         outputed from 'eval_repeats_folds'.     
-        hyperparams (List[Dict[str, Any]]): List of hyperparameter configurations.
+        hyperparams (List[Dict[str, Any]]): List of param_dicts.
+    
+    Returns:
+        Tuple[Dict[str, Any], Dict[str, Any]]: Best hyperparameter configuration
+                    for conformance and mahalanobis distances.
     """
     c_m_param_dicts = [{}, {}]
     for i in range(2):
-        #scores_conf_mahal shape (n_hyperparams, min_fold_size, 2, (opt. dim: n_truncs))
-        scores = scores_conf_mahal[:,:,i]
+        #scores_conf_mahal shape (n_hyperparams, alphas, thresholds, 2, (opt. dim: n_truncs))
+        scores = scores_conf_mahal[:,:,i] # shape (n_hyperparams, alphas, thresholds, (opt. dim: n_truncs))
         dims = np.arange(scores.ndim) 
         max_params = np.max(scores, axis=tuple(dims[1:]) )
         best_param_idx = np.argmax(max_params)
-        max_thresh = np.max(scores, axis=(0, *dims[2:]))
+        max_alpha = np.max(scores, axis=(0, *dims[2:]))
+        best_alpha_idx = np.argmax(max_alpha)
+        max_thresh = np.max(scores, axis=(0, 1,  *dims[3:]))
         best_thresh_idx = np.argmax(max_thresh)
 
         #choose best param_dict
         final_param_dict = hyperparams[best_param_idx].copy()
-        final_param_dict["threshold"] = 1 + best_thresh_idx
+        final_param_dict["threshold"] = thresholds[best_thresh_idx]
+        final_param_dict["alpha"] = alphas[best_alpha_idx]
         final_param_dict["CV_train_score"] = max_params[best_param_idx]
         kernel_name = final_param_dict["kernel_name"]
 
         #store some extra stats
-        final_param_dict["score_params"] = max_params
         final_param_dict["score_thresh"] = max_thresh
+        final_param_dict["score_alphas"] = max_alpha
 
         #optional: best truncation level
-        if "truncated sig" in kernel_name:
-            max_truncs = np.max(scores, axis=(0, 1))
+        if "trunc sig" in kernel_name:
+            max_truncs = np.max(scores, axis=(0, 1, 2))
             best_trunc_idx = np.argmax(max_truncs)
             final_param_dict["order"] = 1+best_trunc_idx
-            final_param_dict["score_orders"] = max_truncs
+            final_param_dict["score_truncations"] = max_truncs
         c_m_param_dicts[i] = final_param_dict
 
     return c_m_param_dicts
 
 
 
-def cv_given_dataset(X:List,                #Training Dataset
-                    y:np.array,             #Training class labels
-                    unique_labels:np.array, #Unique class labels
+def cv_given_dataset(X:Tensor,                  #Training Dataset
+                    y:np.ndarray,               #Training class labels
+                    unique_labels:np.ndarray,   #Unique class labels
                     kernel_names:List[str],
-                    k:int = 4,                  #k-fold cross validation
-                    n_repeats:int = 10,         #repeats of k-fold CV
-                    n_jobs_repeats:int = 1,
-                    n_jobs_gram:int = 1,
+                    k_folds:int,                #k-fold cross validation
+                    n_repeats:int,              #repeats of k-fold CV
                     verbose:bool = False
                     ):
     """Performs repeated k-fold cross-validation on the given dataset 
@@ -327,7 +292,9 @@ def cv_given_dataset(X:List,                #Training Dataset
     use the AUC scores to evaluate the performance of the models. Saves
     the result as a nested dictionary of the form {kernel : label : params}"""
 
-    repeats_and_folds = repeat_k_folds(X, y, k, n_repeats)
+    rskf = RepeatedStratifiedKFold(n_splits=k_folds, n_repeats=n_repeats)
+    thresholds = np.exp(np.linspace(3, -10, 20))
+    alphas = np.array([0, 10**-6, 10**-4, 10**-2])
 
     #store for conf and mahal separately
     c_kernelwise_param_dicts = {} # kernel : label : param_dict
@@ -340,44 +307,49 @@ def cv_given_dataset(X:List,                #Training Dataset
         m_labelwise_param_dicts = {}
         t0 = time.time()
         for label in tqdm(unique_labels, desc = f"Label for {kernel_name}"):
-            scores = eval_repeats_folds(kernel_name, repeats_and_folds,
-                                        hyperparams, label,
-                                        n_jobs_repeats, n_jobs_gram, verbose)
-            c_param_dict, m_param_dict = choose_best_hyperparam(scores, hyperparams)
+            scores = eval_repeats_folds(X, y, rskf, kernel_name,
+                                        hyperparams, label, thresholds,alphas, verbose)
+            c_param_dict, m_param_dict = choose_best_hyperparam(scores, hyperparams, thresholds, alphas)
             c_labelwise_param_dicts[label] = c_param_dict
             m_labelwise_param_dicts[label] = m_param_dict
         c_kernelwise_param_dicts[kernel_name] = c_labelwise_param_dicts
         m_kernelwise_param_dicts[kernel_name] = m_labelwise_param_dicts
 
+        #add elapsed CV time to each param_dict
         t1 = time.time()
-        print(f"Time taken for kernel {kernel_name}:", t1-t0, "seconds")
+        elapsed_time = t1-t0
+        print(f"Time taken for kernel {kernel_name}:", elapsed_time, "seconds")
+        for label in unique_labels:
+            for c_or_m in [c_kernelwise_param_dicts, m_kernelwise_param_dicts]:
+                c_or_m[kernel_name][label]["CV_time"] = elapsed_time
+
     return c_kernelwise_param_dicts, m_kernelwise_param_dicts
+
 
 
 def cv_tslearn(dataset_names:List[str], 
                 kernel_names:List[str],
-                k:int = 5,                  # k-fold cross validation
-                n_repeats:int = 10,         # repeats of k-fold CV)
-                n_jobs_repeats:int = 1,
-                n_jobs_gram:int = 1,
-                verbose:bool = False
+                k_folds:int = 5,           # k-fold cross validation
+                n_repeats:int = 1,         # repeats of k-fold CV)
+                verbose:bool = False,
+                device="cuda",
                 ):    
     """Cross validation for tslearn datasets.
     
     Args:
         dataset_names (List[str]): List of tslearn dataset names.
         kernel_names (List[str]): List of kernel names.
-        k (int): k-fold cross validation.
+        k_folds (int): k-fold cross validation.
         n_repeats (int): Repeats of k-fold CV.
-        n_jobs_repeats (int): Number of jobs for repeats and folds.
-        n_jobs_gram (int): Number of jobs for gram computation.
         verbose (bool): Verbosity.
+        device (str): Device for PyTorch computation.
         """
     cv_best_models = {} # dataset_name : kernel_name : label : param_dict
     for dataset_name in dataset_names:
         print("Dataset:", dataset_name)
         # Load dataset
         X_train, y_train, X_test, y_test = UCR_UEA_datasets().load_dataset(dataset_name)
+        X_train = torch.from_numpy(X_train).to(device)
         unique_labels = np.unique(y_train)
         num_classes = len(unique_labels)
         N_train, T, d = X_train.shape
@@ -387,8 +359,8 @@ def cv_tslearn(dataset_names:List[str],
         t0 = time.time()
         c_kernelwise_param_dicts, m_kernelwise_param_dicts = cv_given_dataset(
                                                 X_train, y_train, unique_labels, 
-                                                kernel_names, k, n_repeats,
-                                                n_jobs_repeats, n_jobs_gram, verbose)
+                                                kernel_names, k_folds, n_repeats,
+                                                verbose)
         t1 = time.time()
         print(f"Time taken for dataset {dataset_name}:", t1-t0, "seconds\n\n\n")
         
@@ -420,6 +392,7 @@ def average_labels(labelwise_dict:Dict[str, Dict[str, Any]],
     return np.mean(L,axis=0)
 
 
+
 def print_cv_results(
         dataset_kernel_label_paramdict : Dict[str, Dict[str, Dict[str, Any]]],
         ):
@@ -437,11 +410,11 @@ def print_cv_results(
                 kernelwise_dict = results[anomaly_method]
                 for kernel_name, labelwise_dict in kernelwise_dict.items():
                     final_score_avgs = average_labels(labelwise_dict, "CV_train_score")
-                    params_score_avgs = average_labels(labelwise_dict, "score_params")
+                    alphas_score_avgs = average_labels(labelwise_dict, "score_alphas")
                     thresh_score_avgs = average_labels(labelwise_dict, "score_thresh")
                     print(f"\n{kernel_name}")
                     print("final_score_avgs", final_score_avgs)
-                    print("params_score_avgs", params_score_avgs)
+                    print("alphas_score_avgs", alphas_score_avgs)
                     print("thresh_score_avgs", thresh_score_avgs)
                     if "truncated sig" in kernel_name:
                         trunc_score_avgs = average_labels(labelwise_dict, "score_orders")
@@ -451,7 +424,7 @@ def print_cv_results(
                         print(label)
                         print({k:v for k,v in param_dict.items() 
                             if k not in ["kernel_name", "normal_class_label", 
-                                            "CV_train_score", "score_params", "score_thresh", 
+                                            "CV_train_score", "score_alphas", "score_thresh", 
                                             "score_orders"]})
             print("\nEnd dataset \n\n\n")
 
@@ -466,31 +439,35 @@ if __name__ == "__main__":
         'FingerMovements',             # N_corpus = 158
         'HandMovementDirection',       # N_corpus = 40
         'Heartbeat',                   # N_corpus = 102
-        'LSST',                        # N_corpus = 176
+        'LSST',                        # N_corpus = 176 N_train = 3000 ish
         'MotorImagery',                # N_corpus = 139
         'NATOPS',                      # N_corpus = 30
-        'PenDigits',                   # N_corpus = 749
         'PEMS-SF',                     # N_corpus = 38
-        'PhonemeSpectra',              # N_corpus = 85
+        'PhonemeSpectra',              # N_corpus = 85 N_train = 3000 ish
         'RacketSports',                # N_corpus = 38
         'SelfRegulationSCP1',          # N_corpus = 134
         'SelfRegulationSCP2',          # N_corpus = 100
         ])
     parser.add_argument("--kernel_names", nargs="+", type=str, default=[
-                "linear",
-                "rbf",
-                "poly",
+                "flat linear",
+                "flat rbf",
+                "flat poly",
+
                 "integral rbf",
                 "integral poly",
-                "truncated sig",
-                "truncated sig rbf",
-                "signature pde rbf",
-                "gak",
+
+                "trunc sig linear",
+                "trunc sig rbf",
+
+                "pde sig linear", #normalized only
+                "pde sig rbf",
+
+                "gak", #normalized only
+
+                "reservoir",
                 ])
-    parser.add_argument("--k", type=int, default=5)
+    parser.add_argument("--k_folds", type=int, default=5)
     parser.add_argument("--n_repeats", type=int, default=1)
-    parser.add_argument("--n_jobs_repeats", type=int, default=5)
-    parser.add_argument("--n_jobs_gram", type=int, default=1)
     parser.add_argument("--save_path", type=str, default=f"Data/cv_{int(time.time()*1000)}.pkl")
     args = vars(parser.parse_args())
     print("Args:", args)
@@ -498,10 +475,8 @@ if __name__ == "__main__":
     cv_best_models = cv_tslearn(
             dataset_names = args["dataset_names"],
             kernel_names = args["kernel_names"],
-            k = args["k"],
+            k_folds = args["k_folds"],
             n_repeats = args["n_repeats"],
-            n_jobs_repeats = args["n_jobs_repeats"],
-            n_jobs_gram = args["n_jobs_gram"],
                 )
     
     #save to disk

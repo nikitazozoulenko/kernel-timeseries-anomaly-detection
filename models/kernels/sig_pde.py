@@ -62,7 +62,7 @@ class SigPDEKernel(TimeSeriesKernel):
             self,
             static_kernel: StaticKernel = RBFKernel(),
             dyadic_order:int = 1,
-            max_batch:int = 100,
+            max_batch:int = 10000,
             normalize: bool = False,
         ):
         """

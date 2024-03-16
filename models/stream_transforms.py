@@ -3,6 +3,7 @@ from torch import Tensor
 from typing import List, Dict, Set, Any, Optional, Tuple, Literal, Callable
 
 
+
 def assert_ndim_geq(X:Tensor, ndim:int):
     """Check if X has more than 'ndim' dimensions."""
     if X.ndim < ndim:
@@ -89,9 +90,11 @@ def augment_time(
     original_shape = X.shape
     X = X.reshape(-1, X.shape[-2], X.shape[-1])
     N, T, d = X.shape
+    dtype = X.dtype
+    device = X.device
 
     # concat time dimension. NOTE torch.repeat works like np.tile
-    time = torch.linspace(min_val, max_val, T)
+    time = torch.linspace(min_val, max_val, T, dtype=dtype, device=device)
     time = time.repeat(N, 1)[:,:, None] #shape (N, T, 1)
     X = torch.concatenate([X, time], axis=-1)
 
@@ -119,10 +122,12 @@ def add_basepoint_zero(
     assert_ndim_geq(X, 2)
     original_shape = X.shape
     X = X.reshape(-1, X.shape[-2], X.shape[-1])
-    N, T, d = X.shape    
+    N, T, d = X.shape
+    dtype = X.dtype
+    device = X.device
 
     # add basepoint
-    basepoint = torch.zeros((N, 1, d))
+    basepoint = torch.zeros((N, 1, d), dtype=dtype, device=device)
     v = [basepoint, X] if first else [X, basepoint]
     X = torch.concatenate(v, axis=1)
 
@@ -147,11 +152,17 @@ def I_visibility_transform(X:Tensor):
     original_shape = X.shape
     X = X.reshape(-1, X.shape[-2], X.shape[-1])
     N, T, d = X.shape
+    dtype = X.dtype
+    device = X.device
 
     # (vec(0), 0) (x_1, 0) then (x_1, 1) (x_2, 1) ...
     X = add_basepoint_zero(X, first=True) # start of time
-    start = torch.concatenate([X[:, 0:2, :], torch.zeros((N, 2, 1))], axis=-1)
-    rest = torch.concatenate([X[:, 1:, :], torch.ones((N, T, 1))], axis=-1)
+    start = torch.concatenate([X[:, 0:2, :], 
+                               torch.zeros((N, 2, 1), dtype=dtype, device=device)], 
+                            axis=-1)
+    rest = torch.concatenate([X[:, 1:, :], 
+                              torch.ones((N, T, 1), dtype=dtype, device=device)], 
+                            axis=-1)
     X = torch.concatenate([start, rest], axis=1)
 
     # reshape back to original shape
@@ -175,11 +186,17 @@ def T_visibility_transform(X:Tensor):
     original_shape = X.shape
     X = X.reshape(-1, X.shape[-2], X.shape[-1])
     N, T, d = X.shape
+    dtype = X.dtype
+    device = X.device
 
     # (x_1, 1) (x_2, 1) ... then (x_T, 0) (vec(0), 0)
     X = add_basepoint_zero(X, first=False) # end of time
-    rest = torch.concatenate([X[:, :-1, :], torch.ones((N, T, 1))], axis=-1)
-    end = torch.concatenate([X[:, -2:, :], torch.zeros((N, 2, 1))], axis=-1)
+    rest = torch.concatenate([X[:, :-1, :], 
+                              torch.ones((N, T, 1), dtype=dtype, device=device)], 
+                            axis=-1)
+    end = torch.concatenate([X[:, -2:, :], 
+                             torch.zeros((N, 2, 1), dtype=dtype, device=device)],
+                             axis=-1)
     X = torch.concatenate([rest, end], axis=1)
 
     # reshape back to original shape
@@ -206,14 +223,8 @@ def normalize_streams(train:Tensor,
     # Normalize data by training set mean and std
     train, test = z_score_normalize(train, test)
 
-    # clip to avoid numerical instability for poly and linear sigs
+    # clip to avoid numerical instability
     c = 5.0
     train = torch.clip(train, -c, c)
     test = torch.clip(test, -c, c)
-
-    # Add basepoint and augment time
-    train = add_basepoint_zero(train)
-    test = add_basepoint_zero(test)
-    train = augment_time(train)
-    test = augment_time(test)
     return train, test
