@@ -65,7 +65,7 @@ def get_hyperparam_ranges(kernel_name:str):
     if "trunc sig" in kernel_name:
         MAX_ORDER = 10
         ranges["order"] = np.array([MAX_ORDER])
-        ranges["scale"] = np.array([1/2, 1, 2])
+        ranges["scale"] = np.array([1/2, 1, 2]) #TODO add to pde sig too
 
     #For all kernels, we can normalize or not
     if "gak" in kernel_name or "pde sig linear" in kernel_name:
