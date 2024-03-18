@@ -72,11 +72,6 @@ def calc_grams(corpus:Tensor,
                              trunc_level=param_dict["order"], only_last=sig_kernel_only_last,
                              normalize=param_dict["normalize"])
     
-    elif kernel_name == "pde sig linear":
-        ker = SigPDEKernel(LinearKernel(scale = 1/d * param_dict["scale"]),
-                           dyadic_order=param_dict["dyadic_order"],
-                           normalize=param_dict["normalize"])
-    
     elif kernel_name == "pde sig rbf":
         ker = SigPDEKernel(RBFKernel(np.sqrt(d)*param_dict["sigma"]),
                            dyadic_order=param_dict["dyadic_order"],
