@@ -199,7 +199,7 @@ def print_latex_results(experiments:Dict, #given by validate_tslearn
                         'PEMS-SF':"PEMS",
                         'RacketSports':"RS", 
                         'SelfRegulationSCP1':"SRS1", 
-                        'PenDigits':"PD",
+                        'SelfRegulationSCP2':"SRS2", 
                         'PhonemeSpectra':"PS", 
                         'LSST':"LSST",
                         }

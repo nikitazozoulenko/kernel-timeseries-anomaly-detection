@@ -172,7 +172,8 @@ def eval_1_paramdict_1_fold(X_train,
                          axis=-1)
         objectives = objectives[1:] #skip trunc_level 1
 
-    return objectives # shape (len(alphas), len(thresholds), 2) or (len(alphas), len(thresholds), 2, n_truncs) for truncated sig
+    return objectives # shape (len(alphas), len(thresholds), 2) 
+                      #    or (len(alphas), len(thresholds), 2, n_truncs) for truncated sig
 
 
 
@@ -252,7 +253,7 @@ def choose_best_hyperparam(scores_conf_mahal:np.ndarray,
     c_m_param_dicts = [{}, {}]
     for i in range(2):
         #scores_conf_mahal shape (n_hyperparams, alphas, thresholds, 2, (opt. dim: n_truncs))
-        scores = scores_conf_mahal[..., i] # shape (n_hyperparams, alphas, thresholds, (opt. dim: n_truncs))
+        scores = scores_conf_mahal[:, :, :, i] # shape (n_hyperparams, alphas, thresholds, (opt. dim: n_truncs))
         dims = np.arange(scores.ndim) 
         max_params = np.max(scores, axis=tuple(dims[1:]) )
         best_param_idx = np.argmax(max_params)
@@ -298,7 +299,7 @@ def cv_given_dataset(X:Tensor,                  #Training Dataset
     the result as a nested dictionary of the form {kernel : label : params}"""
 
     rskf = RepeatedStratifiedKFold(n_splits=k_folds, n_repeats=n_repeats)
-    thresholds = np.exp(np.linspace(3, -7, 15))
+    thresholds = np.exp(np.linspace(3, -7, 20))
     alphas = np.array([0, 10**-4, 10**-2])
 
     #store for conf and mahal separately
@@ -421,16 +422,16 @@ def print_cv_results(
                     print("final_score_avgs", final_score_avgs)
                     print("alphas_score_avgs", alphas_score_avgs)
                     print("thresh_score_avgs", thresh_score_avgs)
-                    if "truncated sig" in kernel_name:
-                        trunc_score_avgs = average_labels(labelwise_dict, "score_orders")
-                        print("orders_score_avgs", trunc_score_avgs)
+                    if "trunc sig" in kernel_name:
+                        trunc_score_avgs = average_labels(labelwise_dict, "score_truncations")
+                        print("trunc_score_avgs", trunc_score_avgs)
                     
                     for label, param_dict in labelwise_dict.items():
                         print(label)
                         print({k:v for k,v in param_dict.items() 
                             if k not in ["kernel_name", "normal_class_label", 
                                             "CV_train_score", "score_alphas", "score_thresh", 
-                                            "score_orders"]})
+                                            "score_truncations"]})
             print("\nEnd dataset \n\n\n")
 
 
