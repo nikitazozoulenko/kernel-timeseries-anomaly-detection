@@ -68,7 +68,7 @@ def highlight_best(scores:np.ndarray[str],
 
 def retrieve_kernel_AUCs(kernelwise_dict:Dict[str, np.ndarray],
                   mahal_or_conf:Literal["conf", "mahal"],
-                  order=["linear", "rbf", "poly", "integral rbf", "integral poly", "truncated sig", "truncated sig rbf", "signature pde rbf", "gak"],
+                  order=["flat linear", "flat rbf", "flat poly", "integral rbf", "integral poly", "trunc sig linear", "trunc sig rbf", "pde sig rbf", "gak", "reservoir"],
                   ):
     """Retrieves the AUCs for each kernel in the order given by the list `order`."""
     #reorder the kernels
@@ -137,15 +137,15 @@ def latex_table(arr:np.ndarray, #shape (n_datasets, 2, n_kernels), axis=1 is [co
     """
     #Add start of table
     code = r"""
-    \begin{tabular}{lc||ccc|cc|ccc|c}
+    \begin{tabular}{lc||ccc|cc|ccc|c|c}
         \toprule
-        \multirow{2}{*}{Dataset}   &  \multicolumn{10}{c}{""" + title + r"} \\"
+        \multirow{2}{*}{Dataset}   &  \multicolumn{11}{c}{""" + title + r"} \\"
     code += r"""
-        \cline{3-11}
+        \cline{3-12}
                                 & & linear & RBF & poly 
                                 & $I_\text{RBF}$ & $I_\text{poly}$ 
                                 & $S_\text{lin}$ & $S_\text{RBF}$ & $S^\infty_\text{RBF}$ 
-                                & GAK \\ 
+                                & GAK & VRK\\ 
         \hline
         \hline""" + "\n"
     
@@ -155,7 +155,8 @@ def latex_table(arr:np.ndarray, #shape (n_datasets, 2, n_kernels), axis=1 is [co
 
     #Add averages
     averages_auc = np.mean(arr, axis=0)
-    averages_rank = np.mean(np.argsort(1/(arr+1), axis=2), axis=0) +1
+    argsort = np.argsort(1/(arr+1), axis=2)
+    averages_rank = np.mean(np.argsort(np.argsort(1/(arr+1), axis=2), axis=2), axis=0) +1
     code += add_datasets_to_latex_table([averages_auc], ["Avg. AUC"], round_digits, leading_zero, "max")
     code += add_datasets_to_latex_table([averages_rank], ["Avg. Rank"], round_digits, leading_zero, "min")
 
