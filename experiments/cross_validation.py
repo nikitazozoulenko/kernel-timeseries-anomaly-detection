@@ -48,18 +48,18 @@ def get_hyperparam_ranges(kernel_name:str):
 
     # Specific to each state-space kernel
     if "rbf" in kernel_name:
-        ranges["sigma"] = np.exp(np.linspace(-3, 3, 10))
+        ranges["sigma"] = np.exp(np.linspace(-3, 4, 8))
     elif "poly" in kernel_name:
         ranges["p"] = np.array([2, 3, 4, 5, 6])
 
     # Specific to each time series kernel
     if "gak" in kernel_name:
-        ranges["gak_factor"] = np.exp(np.linspace(-3, 3, 10))
+        ranges["gak_factor"] = np.exp(np.linspace(-3, 4, 8))
     elif "pde" in kernel_name:
         ranges["dyadic_order"] = np.array([3], dtype=np.int64)
     elif "reservoir" in kernel_name:
         ranges["tau"] = np.array([1/5.5]) #recall that we clipped by 5
-        ranges["gamma"] = np.exp(np.linspace(-4, -0.1, 40))
+        ranges["gamma"] = np.exp(np.linspace(-2, -0.01, 30))
     
     #For trunc sig we get all orders up to MAX_ORDER for free
     if "trunc sig" in kernel_name:
@@ -110,11 +110,11 @@ def aucs_to_objective(aucs:np.ndarray): #shape (M, 2, 2)
     Args:
         aucs (np.ndarray): AUC scores for conformance and mahalanobis distances,
                     and for ROC and PR AUC, for each alpha and truncation level.
-                    Shape (len(alphas), len(thresholds), 2, 2).
+                    Shape (alphas, thresholds, 2, 2).
     
     Returns:
         np.ndarray: Objective for Cross Validation for both Conf and Mahal.
-                    Shape (len(alphas), len(thresholds), 2)."""
+                    Shape (alphas, thresholds, 2)."""
     aucs = np.sum(aucs, axis=-1) # sum of ROC AUC and PR AUC
     return aucs #shape (len(alphas), len(threhsolds), 2)
 
@@ -126,7 +126,6 @@ def eval_1_paramdict_1_fold(X_train,
                             y_val,
                             class_to_test:Any,
                             param_dict:Dict[str, Any],
-                            thresholds:np.ndarray,
                             alphas:np.ndarray,
                             verbose:bool=False,
                             ):
@@ -139,15 +138,15 @@ def eval_1_paramdict_1_fold(X_train,
         y_val (np.ndarray): 1-dim array of class labels.
         class_to_test (Any): The normal class.
         param_dict (Dict[str, Any]): Hyperparameter configuration.
-        thresholds (np.ndarray): Thresholds for covariance operator eigenvalues.
+        alphas (np.ndarray): Array of smoothing parameter alphas.
         verbose (bool): Verbosity.
     
     Returns:
         np.ndarray: Objective scores for conformance and mahalanobis distances,
-                    shape (len(alphas), len(thresholds), 2), or
-                    shape (len(alphas), len(thresholds), 2, n_truncs) for truncated sig.
+                    shape (alphas, thresholds, 2), or
+                    shape (alphas, thresholds, 2, n_truncs) for truncated sig.
     """
-    SVD_threshold = np.min(thresholds)
+    SVD_max_rank = 50
     corpus, test = get_corpus_and_test(X_train, y_train, X_val, 
                                 class_to_test, param_dict)
     vv_grams, uv_grams = calc_grams(corpus, test, param_dict, 
@@ -156,8 +155,8 @@ def eval_1_paramdict_1_fold(X_train,
     def get_objective(vv, uv):
         raw_aucs = run_single_kernel_single_label(X_train, y_train, X_val, y_val,
                             class_to_test, param_dict,
-                            SVD_threshold, verbose,
-                            vv, uv, thresholds, alphas)
+                            SVD_max_rank=SVD_max_rank, verbose=verbose,
+                            vv_gram=vv, uv_gram=uv, alphas=alphas)
         return aucs_to_objective(raw_aucs)
     
 
@@ -166,14 +165,12 @@ def eval_1_paramdict_1_fold(X_train,
         objectives = get_objective(vv_grams, uv_grams)
     # Computationally efficient truncated signature case
     else:
-        objectives = np.stack([get_objective(vv, uv) 
-                         for vv, uv in zip(vv_grams.permute(2,0,1), 
-                                           uv_grams.permute(2,0,1))],
+        objectives = np.stack([get_objective(vv_grams[:,:,i], uv_grams[:,:,i]) 
+                         for i in range (1, vv_grams.shape[2])], #skip trunc_level 1
                          axis=-1)
-        objectives = objectives[1:] #skip trunc_level 1
 
-    return objectives # shape (len(alphas), len(thresholds), 2) 
-                      #    or (len(alphas), len(thresholds), 2, n_truncs) for truncated sig
+    return objectives # shape (alphas, thresholds, 2) 
+                      #    or (alphas, thresholds, 2, n_truncs) for truncated sig
 
 
 
@@ -183,7 +180,6 @@ def eval_repeats_folds(X:Tensor,
                 kernel_name:str,
                 hyperparams:List[Dict[str, Any]],  #List of {name : hyperparam_value}
                 class_to_test:Any,
-                thresholds:np.ndarray,
                 alphas:np.ndarray,
                 verbose:bool = False,
                 ):
@@ -198,12 +194,13 @@ def eval_repeats_folds(X:Tensor,
         kernel_name (str): The name of the kernel.
         hyperparams (List[Dict[str, Any]]): List of hyperparameter configurations.
         class_to_test (Any): The normal class.
+        alphas (np.ndarray): Array of smoothing parameter alphas.
         verbose (bool): Verbosity.
     
     Returns:
         np.ndarray: Objectives scores for each hyperparameter configuration.
-                    Shape (n_hyperparams, len(alphas), len(thresholds), 2), or
-                    shape (n_hyperparams, len(alphas), len(thresholds), 2, n_truncs)
+                    Shape (n_hyperparams, alphas, thresholds, 2), or
+                    shape (n_hyperparams, alphas, thresholds, 2, n_truncs)
     """
     fold_indices = list(rskf.split(X,y))
 
@@ -221,21 +218,19 @@ def eval_repeats_folds(X:Tensor,
             obj = eval_1_paramdict_1_fold(
                             X_train, y_train, X_val, y_val,
                             class_to_test, param_dict, 
-                            thresholds, alphas, verbose)
+                            alphas, verbose)
             folds.append(obj)
-
         scores.append(folds)
 
     #average across repeats and folds
-    scores = np.array(scores) # shape (n_hyperparams, n_folds_repeats, len(alphas), len(thresholds), 2, (opt. dim: n_truncs))
+    scores = np.array(scores) # shape (n_hyperparams, n_folds_repeats, alphas, thresholds, 2, (opt. dim: n_truncs))
     scores = np.mean(scores, axis=1)
-    return scores #shape (n_hyperparams, len(alphas), len(thresholds), 2, (opt. dim: n_truncs))
+    return scores #shape (n_hyperparams, alphas, thresholds, 2, (opt. dim: n_truncs))
 
 
 
 def choose_best_hyperparam(scores_conf_mahal:np.ndarray,
                            hyperparams:List[Dict[str, Any]],
-                           thresholds:np.ndarray,
                            alphas:np.ndarray,
                         ):
     """Chooses the best hyperparameter configuration based on the AUC 
@@ -245,6 +240,7 @@ def choose_best_hyperparam(scores_conf_mahal:np.ndarray,
         scores_conf_mahal (np.ndarray): AUC scores for each hyperparameter configuration
                                         outputed from 'eval_repeats_folds'.     
         hyperparams (List[Dict[str, Any]]): List of param_dicts.
+        alphas (np.ndarray): Array of smoothing parameter alphas.
     
     Returns:
         Tuple[Dict[str, Any], Dict[str, Any]]: Best hyperparameter configuration
@@ -264,7 +260,7 @@ def choose_best_hyperparam(scores_conf_mahal:np.ndarray,
 
         #choose best param_dict
         final_param_dict = hyperparams[best_param_idx].copy()
-        final_param_dict["threshold"] = thresholds[best_thresh_idx]
+        final_param_dict["threshold"] = 1 + best_thresh_idx
         final_param_dict["alpha"] = alphas[best_alpha_idx]
         final_param_dict["CV_train_score"] = max_params[best_param_idx]
         kernel_name = final_param_dict["kernel_name"]
@@ -299,8 +295,7 @@ def cv_given_dataset(X:Tensor,                  #Training Dataset
     the result as a nested dictionary of the form {kernel : label : params}"""
 
     rskf = RepeatedStratifiedKFold(n_splits=k_folds, n_repeats=n_repeats)
-    thresholds = np.exp(np.linspace(3, -7, 20))
-    alphas = np.array([0, 10**-4, 10**-2])
+    alphas = np.array([10**-6])
 
     #store for conf and mahal separately
     c_kernelwise_param_dicts = {} # kernel : label : param_dict
@@ -314,8 +309,8 @@ def cv_given_dataset(X:Tensor,                  #Training Dataset
         t0 = time.time()
         for label in tqdm(unique_labels, desc = f"Label for {kernel_name}"):
             scores = eval_repeats_folds(X, y, rskf, kernel_name,
-                                        hyperparams, label, thresholds,alphas, verbose)
-            c_param_dict, m_param_dict = choose_best_hyperparam(scores, hyperparams, thresholds, alphas)
+                                        hyperparams, label,alphas, verbose)
+            c_param_dict, m_param_dict = choose_best_hyperparam(scores, hyperparams, alphas)
             c_labelwise_param_dicts[label] = c_param_dict
             m_labelwise_param_dicts[label] = m_param_dict
         c_kernelwise_param_dicts[kernel_name] = c_labelwise_param_dicts

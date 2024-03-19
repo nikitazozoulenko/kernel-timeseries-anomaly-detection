@@ -19,8 +19,8 @@ class BaseclassAnomalyScore():
     def __init__(self, 
                  inner_prod_Gram_matrix:Tensor, 
                  SVD_threshold:float = 0.0001,
-                 verbose:bool = False,
                  SVD_max_rank:Optional[int] = None,
+                 verbose:bool = False,
                 ):
         """Class which computes the conformance score or Mahalanobis distance to a 
         given corpus of elements {x_1, ..., x_N} originating from a Hilbert space.
@@ -30,9 +30,10 @@ class BaseclassAnomalyScore():
                                                products <x_i, x_j>.
             SVD_threshold (float): Sets all eigenvalues of the covariance operator 
                                    below this threshold to be 0.
-            verbose (bool): If true, prints out the SVD rank after thresholding.
             SVD_max_rank (int): Only allow 'SVD_max_rank' number of eigenvalues to 
                                 be non-zero.
+            verbose (bool): If true, prints out the SVD rank and the eigenvalues.
+
         """
         N,N = inner_prod_Gram_matrix.shape
 
@@ -49,8 +50,8 @@ class BaseclassAnomalyScore():
         #SVD decomposition is equal to spectral decomposition
         U, S, Ut = torch.linalg.svd( A )
         M = torch.sum(S > SVD_threshold)
-        M = max(M, 1)
         M = min(M, SVD_max_rank) if SVD_max_rank is not None else M
+        M = max(M, 1) #ensure at least one eigenvalue
         if verbose:
             print("Covariance operator eigenvalues =", S)
             print("Covariance operator numerical rank =", M)
@@ -155,25 +156,27 @@ class KernelizedAnomalyScore(BaseclassAnomalyScore):
     def __init__(self, 
                 corpus:List[Any],
                 SVD_threshold:float = 0.0001,
-                verbose:bool = False,
                 SVD_max_rank:Optional[int] = None,
-                ts_kernel:TimeSeriesKernel = GlobalAlignmentKernel()
+                ts_kernel:TimeSeriesKernel = GlobalAlignmentKernel(),
+                verbose:bool = False,
                 ):
         """Callable class which computes the kernelized anomaly score with respect to a corpus of data.
 
         Args:
             corpus (List): List of elements beloning to the same class.
-            SVD_threshold (float): Sets all eigenvalues below this threshold to be 0.
-            verbose (bool): If true, prints out the SVD rank after thresholding.
-            SVD_max_rank (int): Sets all SVD eigenvalues to be 0 beyond 'SVD_max_rank'.
-            n_jobs (int): Number of parallel jobs to run in the kernel calculations.
+            SVD_threshold (float): Sets all eigenvalues of the covariance operator 
+                                   below this threshold to be 0.
+            SVD_max_rank (int): Only allow 'SVD_max_rank' number of eigenvalues to 
+                                be non-zero.
+            verbose (bool): If true, prints out the SVD rank and the eigenvalues.
+
         """
         self.corpus = corpus
         self.ts_kernel = ts_kernel
 
         #compute kernel Gram matrix
         inner_prod_Gram_matrix = ts_kernel(corpus, corpus)
-        super().__init__(inner_prod_Gram_matrix, SVD_threshold, verbose, SVD_max_rank)
+        super().__init__(inner_prod_Gram_matrix, SVD_threshold, SVD_max_rank, verbose)
     
     def __call__(self, 
                  new_sample:Tensor,
@@ -207,17 +210,19 @@ class KernelizedAnomalyScore(BaseclassAnomalyScore):
 class RdAnomalyScore(BaseclassAnomalyScore):
     def __init__(self, 
                  corpus:Tensor, 
-                 SVD_threshold:float = 0.0,
-                 verbose:bool = False,
+                 SVD_threshold:float = 1e-7,
                  SVD_max_rank:Optional[int] = None,
+                 verbose:bool = False,
                 ):
         """Callable class which computes the conformance score to a given corpus of (finite dimensional) data.
 
         Args:
             corpus (Tensor): Array of shape (N,d) of d-dimensional feature vectors.
-            SVD_threshold (float): Sets all eigenvalues below this threshold to be 0.
-            verbose (bool): If true, prints out the SVD rank after thresholding.
-            SVD_max_rank (int): Sets all SVD eigenvalues to be 0 beyond 'SVD_max_rank'.
+            SVD_threshold (float): Sets all eigenvalues of the covariance operator 
+                                   below this threshold to be 0.
+            SVD_max_rank (int): Only allow 'SVD_max_rank' number of eigenvalues to 
+                                be non-zero.
+            verbose (bool): If true, prints out the SVD rank and the eigenvalues.
         """
         self.corpus = corpus
         inner_prod_Gram_matrix = corpus @ corpus.T  #<x_i, x_j>

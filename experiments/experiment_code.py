@@ -1,5 +1,6 @@
 import numpy as np
 import sklearn.metrics
+import scipy
 import torch
 from torch import Tensor
 from tqdm import tqdm
@@ -65,20 +66,17 @@ def calc_grams(corpus:Tensor,
     elif kernel_name == "trunc sig linear":
         ker = TruncSigKernel(LinearKernel(scale = 1/d * param_dict["scale"]),
                              trunc_level=param_dict["order"], only_last=sig_kernel_only_last,
-                             normalize=param_dict["normalize"],
-                             max_batch=100)
+                             normalize=param_dict["normalize"])
     
     elif kernel_name == "trunc sig rbf":
         ker = TruncSigKernel(RBFKernel(np.sqrt(d)*param_dict["sigma"]),
                              trunc_level=param_dict["order"], only_last=sig_kernel_only_last,
-                             normalize=param_dict["normalize"],
-                             max_batch=100)
+                             normalize=param_dict["normalize"])
     
     elif kernel_name == "pde sig rbf":
         ker = SigPDEKernel(RBFKernel(np.sqrt(d)*param_dict["sigma"]),
                            dyadic_order=param_dict["dyadic_order"],
-                           normalize=param_dict["normalize"],
-                           max_batch=100)
+                           normalize=param_dict["normalize"])
         
     elif kernel_name == "gak":
         ker = GlobalAlignmentKernel(RBFKernel(sigma_gak(corpus) * param_dict["gak_factor"]),
@@ -89,8 +87,6 @@ def calc_grams(corpus:Tensor,
                               normalize=param_dict["normalize"])
     
     torch.cuda.empty_cache()
-    print("shapes", corpus.shape, test.shape)
-    # print(torch.cuda.memory_allocated())
     vv_gram = ker(corpus, corpus)
     uv_gram = ker(test, corpus)
     return vv_gram, uv_gram
@@ -173,11 +169,11 @@ def run_single_kernel_single_label(
         y_test:np.ndarray,
         class_to_test:Any,
         param_dict:Dict[str, Any], # name : value
-        SVD_threshold:float = 10e-10,
+        SVD_threshold:float = 1e-7,
+        SVD_max_rank:int = 50,
         verbose:bool = False,
         vv_gram:Optional[Tensor] = None,
         uv_gram:Optional[Tensor] = None,
-        thresholds:Optional[np.ndarray] = None,
         alphas:Optional[np.ndarray] = None,
         ):
     """Computes the AUC scores (weighted one vs rest) for a single kernel,
@@ -194,16 +190,14 @@ def run_single_kernel_single_label(
         verbose (bool): If True, prints progress.
         vv_gram (Tensor): Precomputed gram matrix for train set.
         uv_gram (Tensor): Precomputed gram matrix for test train pairs.
-        thresholds (Optional[nd.array]): If not None, then returns the AUCs
-            corresponding to these thresholds.
         alphas (Optional[nd.array]): If not None, then returns the AUCs
             corresponding to the smoothing parameter alpha in "param_dict",
             otherwise calculates the AUCs for all the alphas in alphas.
     
     Returns:
         np.ndarray: AUC scores for conformance and mahalanobis distances,
-                    and for ROC and PR AUC. Shape (2,2), or (len(alphas), len(thresholds), 2, 2).
-                    if thresholds and alphas are not None.
+                    and for ROC and PR AUC. Shape (2,2), or (alphas, num_eigen, 2, 2)
+                    if alphas is not None.
     """
 
     # Calculate amomaly distancce scores for all test samples
@@ -211,15 +205,15 @@ def run_single_kernel_single_label(
         corpus, test = get_corpus_and_test(X_train, y_train, X_test, 
                                        class_to_test, param_dict)
         vv_gram, uv_gram = calc_grams(corpus, test, param_dict)
-    scorer = BaseclassAnomalyScore(vv_gram, SVD_threshold, verbose=verbose)
+    scorer = BaseclassAnomalyScore(vv_gram, SVD_threshold, SVD_max_rank, verbose=verbose)
         
     # only return accs for highest allowed threshold
-    if (thresholds is None) or (alphas is None):
+    if (alphas is None):
         conf, mahal = scorer._anomaly_distance(uv_gram, method="both", alpha=param_dict["alpha"])
         conf = conf.cpu().numpy()
         mahal = mahal.cpu().numpy() #shape (N2,)
         aucs = compute_aucs(conf, mahal, y_test, class_to_test)
-    else:
+    else: #only used in cross validation code
         aucs = []
         for alpha in alphas:
             conf, mahal = scorer._anomaly_distance(uv_gram, method="both",
@@ -229,16 +223,12 @@ def run_single_kernel_single_label(
             mahal = mahal.cpu().numpy() #shape (N2, num_eigenvalues)
             aucs_threshs = np.array([compute_aucs(c, m, y_test, class_to_test)
                             for c,m in zip(conf.T, mahal.T)]) #shape (num_eigenvalues, 2, 2)
-            # gather all indices specified by thresholds
-            indices = [] 
-            for thresh in thresholds:
-                argwhere = torch.argwhere(scorer.S >= thresh)
-                idx = argwhere[-1, 0].cpu().numpy() if len(argwhere) > 0 else 0
-                indices.append(idx)
-            aucs_threshs = aucs_threshs[indices]
+            #pad and smooth a tiny bit
+            aucs_threshs = np.pad(aucs_threshs, ((0, SVD_max_rank - aucs_threshs.shape[0]), (0,0), (0,0)), "edge")
+            aucs_threshs = scipy.ndimage.convolve1d(aucs_threshs, weights=[1/3, 1/3, 1/3], axis=0)
             aucs.append(aucs_threshs)
         aucs = np.array(aucs)
-    return aucs #shape (2, 2) or (len(alphas), len(thresholds), 2, 2)
+    return aucs #shape (2, 2) or (alphas, num_eigenvalues, 2, 2)
 
 
 
@@ -276,7 +266,7 @@ def run_all_kernels(X_train:Tensor,
                                     y_train, X_test, y_test, 
                                     label, param_dict,
                                     verbose=verbose, 
-                                    SVD_threshold=param_dict["threshold"])
+                                    SVD_max_rank=param_dict["threshold"])
             aucs[:,:, i] = scores
         
         #update kernel results
