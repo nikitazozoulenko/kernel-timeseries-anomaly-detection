@@ -27,40 +27,40 @@ def validate_tslearn(
         verbose (bool): Whether to print progress messages.
         device (str): The PyTorch device to run the models on.
     """
-    
-    print("Start validation on test sets")
-    experiments = {}
-    for dataset_name, results in dataset_kernel_label_paramdict.items():
+    with torch.no_grad():
+        print("Start validation on test sets")
+        experiments = {}
+        for dataset_name, results in dataset_kernel_label_paramdict.items():
 
-        # Load dataset
-        print(dataset_name)
-        X_train, y_train, X_test, y_test = UCR_UEA_datasets().load_dataset(dataset_name)
-        X_train = torch.from_numpy(X_train).to(device)
-        X_test = torch.from_numpy(X_test).to(device)
-        unique_labels = np.unique(y_train)
-        num_classes = len(unique_labels)
-        N_train, T, d = X_train.shape
-        N_test, _, _  = X_test.shape
-        print_dataset_stats(num_classes, d, T, N_train, N_test)
+            # Load dataset
+            print(dataset_name)
+            X_train, y_train, X_test, y_test = UCR_UEA_datasets().load_dataset(dataset_name)
+            X_train = torch.from_numpy(X_train).to(device).detach()
+            X_test = torch.from_numpy(X_test).to(device).detach()
+            unique_labels = np.unique(y_train)
+            num_classes = len(unique_labels)
+            N_train, T, d = X_train.shape
+            N_test, _, _  = X_test.shape
+            print_dataset_stats(num_classes, d, T, N_train, N_test)
 
-        #validate on test set
-        t0 = time.perf_counter()
-        c_kernelwise_dict = results["conf_results"]
-        m_kernelwise_dict = results["mahal_results"]
-        conf_results, mahal_results = (run_all_kernels(X_train, y_train, X_test, y_test, 
-                            unique_labels, kernelwise_dict, verbose)
-                            for kernelwise_dict in [c_kernelwise_dict, m_kernelwise_dict])
-        experiments[dataset_name] = {"conf_results": conf_results, 
-                                     "mahal_results": mahal_results, 
-                                     "num_classes": num_classes, 
-                                     "path dim":d,
-                                     "ts_length":T, 
-                                     "N_train":N_train, 
-                                     "N_test":N_test}
-        t1 = time.perf_counter()
-        print(f"Total elapsed time for {dataset_name}: {t1-t0} seconds\n")
-    print("End validation on test sets\n\n\n")
-    return experiments
+            #validate on test set
+            t0 = time.perf_counter()
+            c_kernelwise_dict = results["conf_results"]
+            m_kernelwise_dict = results["mahal_results"]
+            conf_results, mahal_results = (run_all_kernels(X_train, y_train, X_test, y_test, 
+                                unique_labels, kernelwise_dict, verbose)
+                                for kernelwise_dict in [c_kernelwise_dict, m_kernelwise_dict])
+            experiments[dataset_name] = {"conf_results": conf_results, 
+                                        "mahal_results": mahal_results, 
+                                        "num_classes": num_classes, 
+                                        "path dim":d,
+                                        "ts_length":T, 
+                                        "N_train":N_train, 
+                                        "N_test":N_test}
+            t1 = time.perf_counter()
+            print(f"Total elapsed time for {dataset_name}: {t1-t0} seconds\n")
+        print("End validation on test sets\n\n\n")
+        return experiments
 
 
 

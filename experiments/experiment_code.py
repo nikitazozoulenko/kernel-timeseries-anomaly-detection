@@ -65,17 +65,20 @@ def calc_grams(corpus:Tensor,
     elif kernel_name == "trunc sig linear":
         ker = TruncSigKernel(LinearKernel(scale = 1/d * param_dict["scale"]),
                              trunc_level=param_dict["order"], only_last=sig_kernel_only_last,
-                             normalize=param_dict["normalize"])
+                             normalize=param_dict["normalize"],
+                             max_batch=100)
     
     elif kernel_name == "trunc sig rbf":
         ker = TruncSigKernel(RBFKernel(np.sqrt(d)*param_dict["sigma"]),
                              trunc_level=param_dict["order"], only_last=sig_kernel_only_last,
-                             normalize=param_dict["normalize"])
+                             normalize=param_dict["normalize"],
+                             max_batch=100)
     
     elif kernel_name == "pde sig rbf":
         ker = SigPDEKernel(RBFKernel(np.sqrt(d)*param_dict["sigma"]),
                            dyadic_order=param_dict["dyadic_order"],
-                           normalize=param_dict["normalize"])
+                           normalize=param_dict["normalize"],
+                           max_batch=100)
         
     elif kernel_name == "gak":
         ker = GlobalAlignmentKernel(RBFKernel(sigma_gak(corpus) * param_dict["gak_factor"]),
@@ -85,6 +88,9 @@ def calc_grams(corpus:Tensor,
         ker = ReservoirKernel(param_dict["tau"] / np.sqrt(d), param_dict["gamma"],
                               normalize=param_dict["normalize"])
     
+    torch.cuda.empty_cache()
+    print("shapes", corpus.shape, test.shape)
+    # print(torch.cuda.memory_allocated())
     vv_gram = ker(corpus, corpus)
     uv_gram = ker(test, corpus)
     return vv_gram, uv_gram
@@ -260,8 +266,8 @@ def run_all_kernels(X_train:Tensor,
         Dict[str, Tensor]: Dictionary of AUC scores for all kernels.
     """
     kernel_results = {}
-    for kernel_name, labelwise_dict in tqdm(kernelwise_dict.items()):
-        print("Kernel:", kernel_name)
+    for kernel_name, labelwise_dict in kernelwise_dict.items():
+        print("\nKernel:", kernel_name)
         # 2 methods (conf, mahal), 2 metrics (roc_auc, pr_auc), C classes
         aucs = np.zeros( (2, 2, len(unique_labels)) ) 
         for i, (label, param_dict) in enumerate(labelwise_dict.items()):

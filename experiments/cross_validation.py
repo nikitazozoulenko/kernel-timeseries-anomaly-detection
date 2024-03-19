@@ -350,37 +350,38 @@ def cv_tslearn(dataset_names:List[str],
         verbose (bool): Verbosity.
         device (str): Device for PyTorch computation.
         """
-    cv_best_models = {} # dataset_name : kernel_name : label : param_dict
-    for dataset_name in dataset_names:
-        print("Dataset:", dataset_name)
-        # Load dataset
-        X_train, y_train, X_test, y_test = UCR_UEA_datasets().load_dataset(dataset_name)
-        X_train = torch.from_numpy(X_train).to(device)
-        unique_labels = np.unique(y_train)
-        num_classes = len(unique_labels)
-        N_train, T, d = X_train.shape
-        print_dataset_stats(num_classes, d, T, N_train, "N/A")
+    with torch.no_grad():
+        cv_best_models = {} # dataset_name : kernel_name : label : param_dict
+        for dataset_name in dataset_names:
+            print("Dataset:", dataset_name)
+            # Load dataset
+            X_train, y_train, X_test, y_test = UCR_UEA_datasets().load_dataset(dataset_name)
+            X_train = torch.from_numpy(X_train).to(device)
+            unique_labels = np.unique(y_train)
+            num_classes = len(unique_labels)
+            N_train, T, d = X_train.shape
+            print_dataset_stats(num_classes, d, T, N_train, "N/A")
 
-        # Run each kernel
-        t0 = time.time()
-        c_kernelwise_param_dicts, m_kernelwise_param_dicts = cv_given_dataset(
-                                                X_train, y_train, unique_labels, 
-                                                kernel_names, k_folds, n_repeats,
-                                                verbose)
-        t1 = time.time()
-        print(f"Time taken for dataset {dataset_name}:", t1-t0, "seconds\n\n\n")
-        
-        #log dataset experiment
-        cv_best_models[dataset_name] = {
-                                    "conf_results": c_kernelwise_param_dicts,
-                                    "mahal_results": m_kernelwise_param_dicts, 
-                                    "num_classes": num_classes, 
-                                    "path dim":d,
-                                    "ts_length":T, 
-                                    "N_train":N_train
-                                     }
+            # Run each kernel
+            t0 = time.time()
+            c_kernelwise_param_dicts, m_kernelwise_param_dicts = cv_given_dataset(
+                                                    X_train, y_train, unique_labels, 
+                                                    kernel_names, k_folds, n_repeats,
+                                                    verbose)
+            t1 = time.time()
+            print(f"Time taken for dataset {dataset_name}:", t1-t0, "seconds\n\n\n")
+            
+            #log dataset experiment
+            cv_best_models[dataset_name] = {
+                                        "conf_results": c_kernelwise_param_dicts,
+                                        "mahal_results": m_kernelwise_param_dicts, 
+                                        "num_classes": num_classes, 
+                                        "path dim":d,
+                                        "ts_length":T, 
+                                        "N_train":N_train
+                                        }
 
-    return cv_best_models
+        return cv_best_models
 
 
 #######################################################################

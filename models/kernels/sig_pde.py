@@ -78,7 +78,7 @@ class SigPDEKernel(TimeSeriesKernel):
         super().__init__(max_batch, normalize)
         self.static_wrapper = CrisStaticWrapper(static_kernel)
         self.dyadic_order = dyadic_order
-        self.sig_ker = sigkernel.SigKernel(self.static_wrapper, dyadic_order)
+        self.sig_ker = sigkernel.SigKernel(self.static_wrapper, self.dyadic_order)
 
 
     def _gram(
@@ -88,15 +88,15 @@ class SigPDEKernel(TimeSeriesKernel):
             diag: bool,
         ):
         # sigker required float64, otherwise we get an error
-        X = X.double()
-        Y = Y.double()
-        
+        X = X.double().detach()
+        Y = Y.double().detach()
+
         #get gram matrix
         if diag:
-            gram = self.sig_ker.compute_kernel(X, Y)
+            gram = self.sig_ker.compute_kernel(X, Y, max_batch=2*self.max_batch).detach()
         else:
-            gram = self.sig_ker.compute_Gram(X, Y)
+            gram = self.sig_ker.compute_Gram(X, Y, max_batch=2*self.max_batch).detach()
         
-        #recast and return
-        return gram.to(dtype=X.dtype)
+        #recast and return. Clone otherwise we get a memory leak
+        return gram.clone().detach().to(dtype=X.dtype)
 
