@@ -56,7 +56,7 @@ def get_hyperparam_ranges(kernel_name:str):
     if "gak" in kernel_name:
         ranges["gak_factor"] = np.exp(np.linspace(-3, 4, 8))
     elif "pde" in kernel_name:
-        ranges["dyadic_order"] = np.array([3], dtype=np.int64)
+        ranges["dyadic_order"] = np.array([2], dtype=np.int64)
     elif "reservoir" in kernel_name:
         ranges["tau"] = np.array([1/5.5]) #recall that we clipped by 5
         ranges["gamma"] = np.exp(np.linspace(-2, -0.01, 30))
