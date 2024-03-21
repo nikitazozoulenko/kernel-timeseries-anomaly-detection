@@ -59,7 +59,7 @@ def get_hyperparam_ranges(kernel_name:str):
         ranges["dyadic_order"] = np.array([2], dtype=np.int64)
     elif "reservoir" in kernel_name:
         ranges["tau"] = np.array([1/5.5]) #recall that we clipped by 5
-        ranges["gamma"] = np.exp(np.linspace(-2, -0.01, 30))
+        ranges["gamma"] = np.exp(np.linspace(-1, -0.01, 30))
     
     #For trunc sig we get all orders up to MAX_ORDER for free
     if "trunc sig" in kernel_name:
@@ -295,7 +295,7 @@ def cv_given_dataset(X:Tensor,                  #Training Dataset
     the result as a nested dictionary of the form {kernel : label : params}"""
 
     rskf = RepeatedStratifiedKFold(n_splits=k_folds, n_repeats=n_repeats)
-    alphas = np.array([10**-14])
+    alphas = np.array([10**-12])
 
     #store for conf and mahal separately
     c_kernelwise_param_dicts = {} # kernel : label : param_dict
