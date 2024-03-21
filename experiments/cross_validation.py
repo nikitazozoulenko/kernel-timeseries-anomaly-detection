@@ -43,7 +43,7 @@ def get_hyperparam_ranges(kernel_name:str):
     ranges = {}
 
     # Stream transforms for all kernels
-    ranges["basepoint"] = ["", "basepoint", "I_visibility", "T_visibility"]
+    ranges["basepoint"] = ["", "basepoint"]
     ranges["time"] = ["", "time_enhance"]
 
     # Specific to each state-space kernel
@@ -66,8 +66,8 @@ def get_hyperparam_ranges(kernel_name:str):
         MAX_ORDER = 7
         ranges["order"] = np.array([MAX_ORDER])
     
-    # add path scaling hyperparam for pde and trunc sig linear
-    if "pde" in kernel_name or "trunc sig linear" in kernel_name:
+    # add path scaling hyperparam for trunc sig linear
+    if "trunc sig linear" in kernel_name:
         ranges["scale"] = np.array([1/2, 1, 2])
 
     #For all kernels, we can normalize or not
@@ -295,7 +295,7 @@ def cv_given_dataset(X:Tensor,                  #Training Dataset
     the result as a nested dictionary of the form {kernel : label : params}"""
 
     rskf = RepeatedStratifiedKFold(n_splits=k_folds, n_repeats=n_repeats)
-    alphas = np.array([10**-6])
+    alphas = np.array([10**-14])
 
     #store for conf and mahal separately
     c_kernelwise_param_dicts = {} # kernel : label : param_dict

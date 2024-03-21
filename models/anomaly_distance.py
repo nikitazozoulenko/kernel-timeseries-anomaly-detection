@@ -44,8 +44,8 @@ class BaseclassAnomalyScore():
         A = ( B - a[None] - a[:, None] + b) / N #<f_i, f_j>
 
         #if A=0, add eps I to A to avoid throwing errors
-        if torch.allclose(A, torch.zeros_like(A)):
-            A = A + torch.eye(N, dtype = A.dtype, device=A.device) * 1e-6
+        if torch.allclose(A, torch.zeros_like(A), rtol=1e-14, atol=1e-14):
+            A = A + torch.eye(N, dtype = A.dtype, device=A.device) * 1e-10
 
         #SVD decomposition is equal to spectral decomposition
         U, S, Ut = torch.linalg.svd( A )

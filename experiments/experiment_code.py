@@ -69,12 +69,12 @@ def calc_grams(corpus:Tensor,
                              normalize=param_dict["normalize"])
     
     elif kernel_name == "trunc sig rbf":
-        ker = TruncSigKernel(RBFKernel(np.sqrt(d)*param_dict["sigma"]),
+        ker = TruncSigKernel(RBFKernel(np.sqrt(d)*param_dict["sigma"], scale=1/3),
                              trunc_level=param_dict["order"], only_last=sig_kernel_only_last,
                              normalize=param_dict["normalize"])
     
     elif kernel_name == "pde sig rbf":
-        ker = SigPDEKernel(RBFKernel(np.sqrt(d)*param_dict["sigma"]),
+        ker = SigPDEKernel(RBFKernel(np.sqrt(d)*param_dict["sigma"], scale=1/3),
                            dyadic_order=param_dict["dyadic_order"],
                            normalize=param_dict["normalize"])
         
@@ -169,7 +169,7 @@ def run_single_kernel_single_label(
         y_test:np.ndarray,
         class_to_test:Any,
         param_dict:Dict[str, Any], # name : value
-        SVD_threshold:float = 1e-7,
+        SVD_threshold:float = 1e-14,
         SVD_max_rank:int = 50,
         verbose:bool = False,
         vv_gram:Optional[Tensor] = None,
@@ -257,7 +257,7 @@ def run_all_kernels(X_train:Tensor,
     """
     kernel_results = {}
     for kernel_name, labelwise_dict in kernelwise_dict.items():
-        print("\nKernel:", kernel_name)
+        print("Kernel:", kernel_name)
         # 2 methods (conf, mahal), 2 metrics (roc_auc, pr_auc), C classes
         aucs = np.zeros( (2, 2, len(unique_labels)) ) 
         for i, (label, param_dict) in enumerate(labelwise_dict.items()):

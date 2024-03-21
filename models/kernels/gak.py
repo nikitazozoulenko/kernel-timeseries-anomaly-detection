@@ -60,7 +60,7 @@ def gak_update_antidiag(
 
 
 
-#@torch.jit.script
+@torch.jit.script
 def log_global_align(
         K:Tensor, 
     ):
@@ -133,4 +133,4 @@ class GlobalAlignmentKernel(TimeSeriesKernel):
         ):
         # K shape (N, T1, T2)
         K = self.static_kernel.time_gram(X, Y, diag)
-        return log_global_align(K)
+        return log_global_align(K).clone()
