@@ -34,7 +34,7 @@ def sigma_gak(
 
     lin_ker = LinearKernel()
     dists = lin_ker.squared_dist(X, X)
-    return torch.sqrt(dists.median()) * T**0.5
+    return torch.sqrt(dists.median()) * (T**0.5)
 
 
 

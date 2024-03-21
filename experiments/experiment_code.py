@@ -69,12 +69,12 @@ def calc_grams(corpus:Tensor,
                              normalize=param_dict["normalize"])
     
     elif kernel_name == "trunc sig rbf":
-        ker = TruncSigKernel(RBFKernel(np.sqrt(d)*param_dict["sigma"], scale=1/3),
+        ker = TruncSigKernel(RBFKernel(np.sqrt(d)*param_dict["sigma"], scale=1/2),
                              trunc_level=param_dict["order"], only_last=sig_kernel_only_last,
                              normalize=param_dict["normalize"])
     
     elif kernel_name == "pde sig rbf":
-        ker = SigPDEKernel(RBFKernel(np.sqrt(d)*param_dict["sigma"], scale=1/3),
+        ker = SigPDEKernel(RBFKernel(np.sqrt(d)*param_dict["sigma"], scale=1/2),
                            dyadic_order=param_dict["dyadic_order"],
                            normalize=param_dict["normalize"])
         
@@ -169,15 +169,16 @@ def run_single_kernel_single_label(
         y_test:np.ndarray,
         class_to_test:Any,
         param_dict:Dict[str, Any], # name : value
-        SVD_threshold:float = 1e-14,
+        SVD_threshold:float = 1e-10,
         SVD_max_rank:int = 50,
         verbose:bool = False,
         vv_gram:Optional[Tensor] = None,
         uv_gram:Optional[Tensor] = None,
         alphas:Optional[np.ndarray] = None,
         ):
-    """Computes the AUC scores (weighted one vs rest) for a single kernel,
-    using kernelized nearest neighbour variance adjusted distances.
+    """Computes the AUC scores (one vs rest) for a single kernel,
+    using kernelized nearest neighbour variance adjusted distances
+    and mahalanobis distance.
 
     Args:
         X_train (Tensor): Array of shape (N, T, d).
@@ -224,8 +225,7 @@ def run_single_kernel_single_label(
             aucs_threshs = np.array([compute_aucs(c, m, y_test, class_to_test)
                             for c,m in zip(conf.T, mahal.T)]) #shape (num_eigenvalues, 2, 2)
             #pad and smooth a tiny bit
-            aucs_threshs = np.pad(aucs_threshs, ((0, SVD_max_rank - aucs_threshs.shape[0]), (0,0), (0,0)), "edge")
-            aucs_threshs = scipy.ndimage.convolve1d(aucs_threshs, weights=[1/3, 1/3, 1/3], axis=0)
+            aucs_threshs = np.pad(aucs_threshs, ((0, SVD_max_rank - aucs_threshs.shape[0]), (0,0), (0,0)) )
             aucs.append(aucs_threshs)
         aucs = np.array(aucs)
     return aucs #shape (2, 2) or (alphas, num_eigenvalues, 2, 2)
@@ -243,14 +243,14 @@ def run_all_kernels(X_train:Tensor,
     """Runs all kernels for all classes and computes AUC scores.
 
     Args:
-        X_train (Tensor): List of time series of shape (T_i, d).
+        X_train (Tensor): Tensor of shape (N1 T, d).
         y_train (np.ndarray): 1-dim array of class labels.
-        X_test (Tensor): List of time series of shape (T_i, d).
+        X_test (Tensor): Tensor of shape (N2, T, d).
         y_test (np.ndarray): 1-dim array of class labels.
         unique_labels (np.ndarray): Unique class labels.
         kernelwise_dict (Dict[str, Dict[str, Dict[str, Any]]]): Nested dict 
                         of kernel parameters. kernel_name : label : param_dict
-        verbose (bool): If True, prints progress.
+        verbose (bool): Whether to print progress.
 
     Returns:
         Dict[str, Tensor]: Dictionary of AUC scores for all kernels.

@@ -14,7 +14,7 @@ from experiments.utils import save_to_pickle, join_dicts_from_pickle_paths
 
 def validate_tslearn(
         dataset_kernel_label_paramdict : Dict[str, Dict[str, Dict[str, Any]]],
-        verbose:bool=False,
+        verbose:bool = False,
         device:str = "cuda",
         ):
     """Validates the anomaly detection models on the test sets of tslearn,
@@ -23,8 +23,7 @@ def validate_tslearn(
     Args:
         dataset_kernel_label_paramdict (Dict): The cross validation results, 
             as returned by 'experiments.cv_tslearn'.
-        n_jobs (int): The number of jobs to run in parallel for Gram calculations.
-        verbose (bool): Whether to print progress messages.
+        verbose (bool): Whether to print or not.
         device (str): The PyTorch device to run the models on.
     """
     with torch.no_grad():

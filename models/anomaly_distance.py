@@ -45,7 +45,7 @@ class BaseclassAnomalyScore():
 
         #if A=0, add eps I to A to avoid throwing errors
         if torch.allclose(A, torch.zeros_like(A), rtol=1e-14, atol=1e-14):
-            A = A + torch.eye(N, dtype = A.dtype, device=A.device) * 1e-10
+            A = A + torch.eye(N, dtype = A.dtype, device=A.device) * 1e-12
 
         #SVD decomposition is equal to spectral decomposition
         U, S, Ut = torch.linalg.svd( A )
@@ -59,7 +59,7 @@ class BaseclassAnomalyScore():
 
 
         #calculate matrix E_{i,m} = <x_i, e_m>,  (e_1, ... e_M) ONB of eigenvectors of covariance operator
-        E =  (B-a[:None]) @ U / torch.sqrt(N*S[None, :]) #shape (N,M)
+        E =  (B-a[:, None]) @ U / torch.sqrt(N*S[None, :]) #shape (N,M)
         c = torch.mean(E, axis=0) #shape (M)
 
         #save
@@ -74,8 +74,9 @@ class BaseclassAnomalyScore():
         """Calculates the nearest neighbour variance distance of a new sample 'y' given 
         array of inner products <y, e_n> of eigenvectors of the covariance operator."""
         # d[l,n,m] = <y_l-x_n, e_m>^2 / S_m
-        d = inner_prod_y_en[..., None,:]-self.E[:, :] #shape (..., N, M)
-        d = d**2 * self.S[None, :] / (alpha + self.S[None, :])**2 #shape (..., N, M)
+        d = inner_prod_y_en[..., None, :]-self.E #shape (..., N, M)
+        alphalambd = alpha + self.S[None, :] #shape (1, M)
+        d = d**2 * (self.S[None, :] / alphalambd) / alphalambd #shape (..., N, M)
 
         # cumsum[l,n,m] = ||y_l-x_n||^2_{var-norm} at m'th threshold level
         cumsum = torch.cumsum(d, axis=-1) #shape (..., N, M)
@@ -97,7 +98,8 @@ class BaseclassAnomalyScore():
         array of inner products <y, e_n> of eigenvectors of the covariance operator."""
         #d[l,m] = <y_l - xbar, e_m>^2 / S_m
         d = inner_prod_y_en-self.c #shape (..., M)
-        d = d**2 * self.S / (alpha + self.S)**2 #shape (..., M)
+        alphalambd = alpha + self.S
+        d = d**2 * (self.S / alphalambd) / alphalambd #shape (..., M)
 
         # cumsum[l,m] = ||y_l-xbar||^2_{var-norm} at m'th threshold level
         sqrt_cumsum = torch.sqrt(torch.cumsum(d, axis=-1)) #shape (..., M)

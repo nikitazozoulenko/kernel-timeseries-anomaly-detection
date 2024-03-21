@@ -36,6 +36,7 @@ def str_to_original(val):
             else:
                 return val
 
+
 def get_hyperparam_ranges(kernel_name:str):
     """ Returns a dict of hyperparameter ranges for the specified kernel."""
 
@@ -43,38 +44,35 @@ def get_hyperparam_ranges(kernel_name:str):
     ranges = {}
 
     # Stream transforms for all kernels
-    ranges["basepoint"] = ["", "basepoint"]
+    ranges["basepoint"] = ["basepoint"]
     ranges["time"] = ["", "time_enhance"]
+    ranges["normalize"] = np.array([True, False])
 
     # Specific to each state-space kernel
     if "rbf" in kernel_name:
-        ranges["sigma"] = np.exp(np.linspace(-3, 4, 8))
-    elif "poly" in kernel_name:
+        ranges["sigma"] = np.exp(np.linspace(-2, 2, 5))
+    if "poly" in kernel_name:
         ranges["p"] = np.array([2, 3, 4, 5, 6])
 
     # Specific to each time series kernel
     if "gak" in kernel_name:
-        ranges["gak_factor"] = np.exp(np.linspace(-3, 4, 8))
-    elif "pde" in kernel_name:
+        ranges["normalize"] = np.array([True]) #normalized only
+        ranges["gak_factor"] = np.exp(np.linspace(-2, 2, 5))
+
+    if "pde" in kernel_name:
         ranges["dyadic_order"] = np.array([2], dtype=np.int64)
-    elif "reservoir" in kernel_name:
+
+    if "reservoir" in kernel_name:
         ranges["tau"] = np.array([1/5.5]) #recall that we clipped by 5
         ranges["gamma"] = np.exp(np.linspace(-1, -0.01, 30))
-    
-    #For trunc sig we get all orders up to MAX_ORDER for free
-    if "trunc sig" in kernel_name:
-        MAX_ORDER = 7
+
+    if "trunc sig" in kernel_name: 
+        MAX_ORDER = 8 #For trunc sig we get all orders up to MAX_ORDER for free
         ranges["order"] = np.array([MAX_ORDER])
     
     # add path scaling hyperparam for trunc sig linear
     if "trunc sig linear" in kernel_name:
-        ranges["scale"] = np.array([1/2, 1, 2])
-
-    #For all kernels, we can normalize or not
-    if "gak" in kernel_name:
-        ranges["normalize"] = np.array([True])
-    else:
-        ranges["normalize"] = np.array([True, False])
+        ranges["scale"] = np.array([1/4, 1/2, 1, 2, 4])
 
     return ranges
 
@@ -146,7 +144,7 @@ def eval_1_paramdict_1_fold(X_train,
                     shape (alphas, thresholds, 2), or
                     shape (alphas, thresholds, 2, n_truncs) for truncated sig.
     """
-    SVD_max_rank = 50
+    SVD_max_rank = 30
     corpus, test = get_corpus_and_test(X_train, y_train, X_val, 
                                 class_to_test, param_dict)
     vv_grams, uv_grams = calc_grams(corpus, test, param_dict, 
@@ -175,13 +173,13 @@ def eval_1_paramdict_1_fold(X_train,
 
 
 def eval_repeats_folds(X:Tensor,
-                       y:np.ndarray,
-                rskf:RepeatedStratifiedKFold,
-                kernel_name:str,
-                hyperparams:List[Dict[str, Any]],  #List of {name : hyperparam_value}
-                class_to_test:Any,
-                alphas:np.ndarray,
-                verbose:bool = False,
+                        y:np.ndarray,
+                        rskf:RepeatedStratifiedKFold,
+                        kernel_name:str,
+                        hyperparams:List[Dict[str, Any]],  #List of {name : hyperparam_value}
+                        class_to_test:Any,
+                        alphas:np.ndarray,
+                        verbose:bool = False,
                 ):
     """Evaluates the performance of the given hyperparameters on the 
     given dataset using repeated k-fold cross-validation. Returns the
@@ -309,7 +307,7 @@ def cv_given_dataset(X:Tensor,                  #Training Dataset
         t0 = time.time()
         for label in tqdm(unique_labels, desc = f"Label for {kernel_name}"):
             scores = eval_repeats_folds(X, y, rskf, kernel_name,
-                                        hyperparams, label,alphas, verbose)
+                                        hyperparams, label, alphas, verbose)
             c_param_dict, m_param_dict = choose_best_hyperparam(scores, hyperparams, alphas)
             c_labelwise_param_dicts[label] = c_param_dict
             m_labelwise_param_dicts[label] = m_param_dict
@@ -426,7 +424,7 @@ def print_cv_results(
                         print(label)
                         print({k:v for k,v in param_dict.items() 
                             if k not in ["kernel_name", "normal_class_label", 
-                                            "CV_train_score", "score_alphas", "score_thresh", 
+                                            "score_alphas", "score_thresh", 
                                             "score_truncations"]})
             print("\nEnd dataset \n\n\n")
 
