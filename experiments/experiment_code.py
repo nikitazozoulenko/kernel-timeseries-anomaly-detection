@@ -18,6 +18,7 @@ from models.stream_transforms import augment_time, add_basepoint_zero, I_visibil
 from models.kernels import StaticKernel, TimeSeriesKernel
 from models.kernels import LinearKernel, RBFKernel, PolyKernel
 from models.kernels import TruncSigKernel, SigPDEKernel, StaticIntegralKernel, FlattenedStaticKernel, GlobalAlignmentKernel, ReservoirKernel
+from models.kernels import RandomizedSigKernel
 from models.kernels import sigma_gak
 
 
@@ -52,7 +53,7 @@ def calc_grams(corpus:Tensor,
                                     normalize=param_dict["normalize"])
     
     elif kernel_name == "flat poly":
-        ker = FlattenedStaticKernel(PolyKernel(scale = 1/d/T, c=1.0, p=param_dict["p"]),
+        ker = FlattenedStaticKernel(PolyKernel(scale = 1/d/T, c=param_dict["c"], p=param_dict["p"]),
                                     normalize=param_dict["normalize"])
 
     elif kernel_name == "integral rbf":
@@ -60,7 +61,7 @@ def calc_grams(corpus:Tensor,
                                    normalize=param_dict["normalize"])
 
     elif kernel_name == "integral poly":
-        ker = StaticIntegralKernel(PolyKernel(scale = 1/d, c=1.0, p=param_dict["p"]),
+        ker = StaticIntegralKernel(PolyKernel(scale = 1/d, c=param_dict["c"], p=param_dict["p"]),
                                    normalize=param_dict["normalize"])
     
     elif kernel_name == "trunc sig linear":
@@ -69,12 +70,17 @@ def calc_grams(corpus:Tensor,
                              normalize=param_dict["normalize"])
     
     elif kernel_name == "trunc sig rbf":
-        ker = TruncSigKernel(RBFKernel(np.sqrt(d)*param_dict["sigma"], scale=1/2),
+        ker = TruncSigKernel(RBFKernel(np.sqrt(d)*param_dict["sigma"], scale=param_dict["scale"]),
                              trunc_level=param_dict["order"], only_last=sig_kernel_only_last,
                              normalize=param_dict["normalize"])
     
+    elif kernel_name == "pde sig linear":
+        ker = SigPDEKernel(LinearKernel(scale = 1/d * param_dict["scale"]),
+                           dyadic_order=param_dict["dyadic_order"],
+                           normalize=param_dict["normalize"])
+    
     elif kernel_name == "pde sig rbf":
-        ker = SigPDEKernel(RBFKernel(np.sqrt(d)*param_dict["sigma"], scale=1/2),
+        ker = SigPDEKernel(RBFKernel(np.sqrt(d)*param_dict["sigma"], scale=param_dict["scale"]),
                            dyadic_order=param_dict["dyadic_order"],
                            normalize=param_dict["normalize"])
         
@@ -83,11 +89,23 @@ def calc_grams(corpus:Tensor,
                                     normalize=param_dict["normalize"])
     
     elif kernel_name == "reservoir":
+        # Reservoir kernel requires bounded inputs
         ker = ReservoirKernel(param_dict["tau"] / np.sqrt(d), param_dict["gamma"],
                               normalize=param_dict["normalize"])
+        c = 1/param_dict["tau"]
+        eps = 0.1
+        corpus = torch.clamp(corpus, -c+eps, c-eps)
+        test = torch.clamp(test, -c+eps, c-eps)
+    
+    elif "rand sig" in kernel_name:
+        ker = RandomizedSigKernel(n_features= param_dict["n_features"], 
+                               activation = param_dict["activation"],
+                               seed = param_dict["seed"],
+                               normalize=param_dict["normalize"])
     
     torch.cuda.empty_cache()
     vv_gram = ker(corpus, corpus)
+    torch.cuda.empty_cache()
     uv_gram = ker(test, corpus)
     return vv_gram, uv_gram
 

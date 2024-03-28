@@ -18,7 +18,7 @@ class FlattenedStaticKernel(TimeSeriesKernel):
     def __init__(
             self,
             static_kernel:StaticKernel = RBFKernel(),
-            max_batch:int = 10000,
+            max_batch:int = 100000,
             normalize:bool = False,
         ):
         """

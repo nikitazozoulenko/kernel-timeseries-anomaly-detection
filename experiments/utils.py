@@ -1,6 +1,30 @@
 import pickle
 from typing import List, Optional, Dict, Set, Callable, Any, Literal
 import numpy as np
+from aeon.datasets import load_classification
+from aeon.datasets import load_from_tsfile
+
+
+
+def load_dataset(dataset_name:str):
+    """Loads a dataset from the UCR/UEA archive using 
+    the aeon library.
+
+    Args:
+        dataset_name (str): Name of the dataset
+
+    Returns:
+        Tuple: 4-tuple of the form (X_train, y_train, X_test, y_test)
+    """
+    if dataset_name == "CharacterTrajectories":
+        X_train, y_train = load_from_tsfile("Data/CharacterTrajectories_eq_TRAIN.ts")
+        X_test, y_test = load_from_tsfile("Data/CharacterTrajectories_eq_TEST.ts")
+
+    else:
+        X_train, y_train = load_classification(dataset_name, split="train")
+        X_test, y_test = load_classification(dataset_name, split="train")
+
+    return X_train.transpose(0, 2, 1), y_train, X_test.transpose(0, 2, 1), y_test
 
 
 ##########################################################################

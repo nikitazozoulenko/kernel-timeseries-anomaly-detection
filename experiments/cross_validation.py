@@ -1,7 +1,6 @@
 import numpy as np
 from tqdm import tqdm
 from typing import List, Optional, Dict, Set, Callable, Any
-from tslearn.datasets import UCR_UEA_datasets
 import torch
 from torch import Tensor
 from sklearn.model_selection import RepeatedStratifiedKFold
@@ -14,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from experiments.experiment_code import run_single_kernel_single_label, get_corpus_and_test
 from experiments.experiment_code import calc_grams, print_dataset_stats
-from experiments.utils import save_to_pickle
+from experiments.utils import save_to_pickle, load_dataset
 
 
 #######################################################################
@@ -53,26 +52,42 @@ def get_hyperparam_ranges(kernel_name:str):
         ranges["sigma"] = np.exp(np.linspace(-2, 2, 5))
     if "poly" in kernel_name:
         ranges["p"] = np.array([2, 3, 4, 5, 6])
+        ranges["c"] = np.array([1/4, 1/2, 1, 2, 4])
 
     # Specific to each time series kernel
     if "gak" in kernel_name:
-        ranges["normalize"] = np.array([True]) #normalized only
         ranges["gak_factor"] = np.exp(np.linspace(-2, 2, 5))
 
     if "pde" in kernel_name:
         ranges["dyadic_order"] = np.array([2], dtype=np.int64)
 
     if "reservoir" in kernel_name:
-        ranges["tau"] = np.array([1/5.5]) #recall that we clipped by 5
-        ranges["gamma"] = np.exp(np.linspace(-1, -0.01, 30))
+        ranges["tau"] = np.array([1/1, 1/2, 1/3, 1/4, 1/5]) # we also need to clip with 1/tau, since VRK requires the input to be bounded
+        base = 10000
+        ranges["gamma"] = np.emath.logn(base, np.linspace(base**0.5, base**0.999, 20))
 
     if "trunc sig" in kernel_name: 
-        MAX_ORDER = 8 #For trunc sig we get all orders up to MAX_ORDER for free
+        MAX_ORDER = 6 #For trunc sig we get all orders up to MAX_ORDER for free
         ranges["order"] = np.array([MAX_ORDER])
     
-    # add path scaling hyperparam for trunc sig linear
-    if "trunc sig linear" in kernel_name:
+    # add path scaling sig kernels
+    if "sig" in kernel_name:
         ranges["scale"] = np.array([1/4, 1/2, 1, 2, 4])
+
+    #rand sigs
+    if "rand sig" in kernel_name:
+        ranges["n_features"] = np.array([50, 100, 200, 400])
+        ranges["seed"] = np.array([0])
+        if "identity" in kernel_name:
+            ranges["activation"] = ["identity"]
+        elif "relu" in kernel_name:
+            ranges["activation"] = ["relu"]
+        elif "tanh" in kernel_name:
+            ranges["activation"] = ["tanh"]
+
+    #normalized only due to blowup
+    if kernel_name in ["gak", "rand sig identity", "rand sig relu", "pde sig linear"]:
+        ranges["normalize"] = [True]
 
     return ranges
 
@@ -161,10 +176,10 @@ def eval_1_paramdict_1_fold(X_train,
     # Simple case for most methods
     if "trunc sig" not in param_dict["kernel_name"]:
         objectives = get_objective(vv_grams, uv_grams)
-    # Computationally efficient truncated signature case
+    # truncated signature case
     else:
         objectives = np.stack([get_objective(vv_grams[:,:,i], uv_grams[:,:,i]) 
-                         for i in range (1, vv_grams.shape[2])], #skip trunc_level 1
+                         for i in range (vv_grams.shape[2])],
                          axis=-1)
 
     return objectives # shape (alphas, thresholds, 2) 
@@ -271,7 +286,7 @@ def choose_best_hyperparam(scores_conf_mahal:np.ndarray,
         if "trunc sig" in kernel_name:
             max_truncs = np.max(scores, axis=(0, 1, 2))
             best_trunc_idx = np.argmax(max_truncs)
-            final_param_dict["order"] = 2+best_trunc_idx # +2 since we skipped level 1
+            final_param_dict["order"] = 1 + best_trunc_idx
             final_param_dict["score_truncations"] = max_truncs
         c_m_param_dicts[i] = final_param_dict
 
@@ -293,7 +308,7 @@ def cv_given_dataset(X:Tensor,                  #Training Dataset
     the result as a nested dictionary of the form {kernel : label : params}"""
 
     rskf = RepeatedStratifiedKFold(n_splits=k_folds, n_repeats=n_repeats)
-    alphas = np.array([10**-3, 10**-6, 10**-9])
+    alphas = np.array([10**-2, 10**-4, 10**-6, 10**-8])
 
     #store for conf and mahal separately
     c_kernelwise_param_dicts = {} # kernel : label : param_dict
@@ -326,17 +341,17 @@ def cv_given_dataset(X:Tensor,                  #Training Dataset
 
 
 
-def cv_tslearn(dataset_names:List[str], 
+def cv_UEA(dataset_names:List[str], 
                 kernel_names:List[str],
                 k_folds:int = 5,           # k-fold cross validation
                 n_repeats:int = 1,         # repeats of k-fold CV)
                 verbose:bool = False,
                 device="cuda",
                 ):    
-    """Cross validation for tslearn datasets.
+    """Cross validation for multivariate UEA datasets.
     
     Args:
-        dataset_names (List[str]): List of tslearn dataset names.
+        dataset_names (List[str]): List of UEA dataset names.
         kernel_names (List[str]): List of kernel names.
         k_folds (int): k-fold cross validation.
         n_repeats (int): Repeats of k-fold CV.
@@ -348,7 +363,7 @@ def cv_tslearn(dataset_names:List[str],
         for dataset_name in dataset_names:
             print("Dataset:", dataset_name)
             # Load dataset
-            X_train, y_train, X_test, y_test = UCR_UEA_datasets().load_dataset(dataset_name)
+            X_train, y_train, X_test, y_test = load_dataset(dataset_name)
             X_train = torch.from_numpy(X_train).to(device)
             unique_labels = np.unique(y_train)
             num_classes = len(unique_labels)
@@ -396,9 +411,9 @@ def average_labels(labelwise_dict:Dict[str, Dict[str, Any]],
 def print_cv_results(
         dataset_kernel_label_paramdict : Dict[str, Dict[str, Dict[str, Any]]],
         ):
-    """Prints the results of cross validation on the tslearn datasets
+    """Prints the results of cross validation on the UEA datasets
     given a dict of form {dataset_name : kernel_name : label : param_dict},
-    outputed by 'cv_tslearn'."""
+    outputed by 'cv_UEA'."""
 
     with np.printoptions(precision=3, suppress=True):
         print("Cross Validation Results")
@@ -429,21 +444,21 @@ def print_cv_results(
             print("\nEnd dataset \n\n\n")
 
 
-#python3 experiments/cross_validation.py  --dataset_names "Epilepsy" --k_folds 5 --n_repeats 5 --save_path "Data/cv_Epilepsy.pkl"
+#python3 experiments/cross_validation.py  --dataset_names "Epilepsy" --k_folds 5 --n_repeats 10 --save_path "Data/cv_Epilepsy.pkl"
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Run this script to run cross validation on ts-learn datasets.")
     parser.add_argument("--dataset_names", nargs="+", type=str, default=[
+        'CharacterTrajectories',       # N_corpus = 
         'Epilepsy',                    # N_corpus = 34
         'EthanolConcentration',        # N_corpus = 65
         'FingerMovements',             # N_corpus = 158
         'HandMovementDirection',       # N_corpus = 40
         'Heartbeat',                   # N_corpus = 102
-        'LSST',                        # N_corpus = 176 N_train = 3000 ish
+        'LSST',                        # N_corpus = 176, N_train = 3000 ish
         'MotorImagery',                # N_corpus = 139
-        'NATOPS',                      # N_corpus = 30
         'PEMS-SF',                     # N_corpus = 38
-        'PhonemeSpectra',              # N_corpus = 85 N_train = 3000 ish
+        'PhonemeSpectra',              # N_corpus = 85, N_train = 3000 ish
         'RacketSports',                # N_corpus = 38
         'SelfRegulationSCP1',          # N_corpus = 134
         'SelfRegulationSCP2',          # N_corpus = 100
@@ -458,7 +473,12 @@ if __name__ == "__main__":
 
                 "trunc sig linear",
                 "trunc sig rbf",
+                "pde sig linear", #normalized only
                 "pde sig rbf",
+
+                "rand sig identity", #normalized only
+                "rand sig relu", #normalized only
+                "rand sig tanh",
 
                 "gak", #normalized only
 
@@ -470,7 +490,7 @@ if __name__ == "__main__":
     args = vars(parser.parse_args())
     print("Args:", args)
 
-    cv_best_models = cv_tslearn(
+    cv_best_models = cv_UEA(
             dataset_names = args["dataset_names"],
             kernel_names = args["kernel_names"],
             k_folds = args["k_folds"],

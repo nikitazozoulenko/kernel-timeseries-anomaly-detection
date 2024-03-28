@@ -6,3 +6,4 @@ from .integral import StaticIntegralKernel
 from .flattened_static import FlattenedStaticKernel
 from .gak import GlobalAlignmentKernel, sigma_gak
 from .reservoir import ReservoirKernel
+from .sig_random import RandomizedSigKernel

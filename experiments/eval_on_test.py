@@ -2,27 +2,26 @@ import numpy as np
 from typing import List, Optional, Dict, Set, Callable, Any
 import torch
 from torch import Tensor
-from tslearn.datasets import UCR_UEA_datasets
 import pickle
 import time
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from experiments.experiment_code import run_all_kernels, print_dataset_stats
-from experiments.utils import save_to_pickle, join_dicts_from_pickle_paths
+from experiments.utils import save_to_pickle, join_dicts_from_pickle_paths, load_dataset
 
 
-def validate_tslearn(
+def validate_UEA(
         dataset_kernel_label_paramdict : Dict[str, Dict[str, Dict[str, Any]]],
         verbose:bool = False,
         device:str = "cuda",
         ):
-    """Validates the anomaly detection models on the test sets of tslearn,
+    """Validates the anomaly detection models on the test sets,
     given cross validation hyperparameter search results.
     
     Args:
         dataset_kernel_label_paramdict (Dict): The cross validation results, 
-            as returned by 'experiments.cv_tslearn'.
+            as returned by 'experiments.cv_UEA'.
         verbose (bool): Whether to print or not.
         device (str): The PyTorch device to run the models on.
     """
@@ -33,7 +32,7 @@ def validate_tslearn(
 
             # Load dataset
             print(dataset_name)
-            X_train, y_train, X_test, y_test = UCR_UEA_datasets().load_dataset(dataset_name)
+            X_train, y_train, X_test, y_test = load_dataset(dataset_name)
             X_train = torch.from_numpy(X_train).to(device).detach()
             X_test = torch.from_numpy(X_test).to(device).detach()
             unique_labels = np.unique(y_train)
@@ -69,7 +68,7 @@ def print_test_results(experiments:Dict[str, Dict[str, Any]],
 
     Args:
         experiments (Dict): The results of the test experiments, 
-                            as returned by 'validate_tslearn'.
+                            as returned by 'validate_UEA'.
         round_digits (int): The number of digits to round the
                             results to.
     """
@@ -95,7 +94,7 @@ def print_test_results(experiments:Dict[str, Dict[str, Any]],
 
 
 
-# python3 experiments/eval_on_test.py --cv_datasetwise_dict_paths "Data/cv_ArticularyWordRecognition.pkl" "Data/cv_BasicMotions.pkl" "Data/cv_EthanolConcentration.pkl" "Data/cv_FingerMovements.pkl" "Data/cv_Heartbeat.pkl" "Data/cv_Libras.pkl" "Data/cv_NATOPS.pkl" "Data/cv_RacketSports.pkl" "Data/cv_SelfRegulationSCP1.pkl" "Data/cv_UWaveGestureLibrary.pkl" --n_jobs_gram 150 --save_path "Data/results_shorts.pkl"
+# python3 experiments/eval_on_test.py --cv_datasetwise_dict_paths "Data/cv_EthanolConcentration.pkl"  "Data/cv_Heartbeat.pkl"  --save_path "Data/results_shorts.pkl"
 if __name__ == "__main__":
     # Parse command line arguments
     import argparse
@@ -109,7 +108,7 @@ if __name__ == "__main__":
     dataset_kernel_label_paramdict = join_dicts_from_pickle_paths(args["cv_datasetwise_dict_paths"])
 
     #run test
-    test_results = validate_tslearn(
+    test_results = validate_UEA(
             dataset_kernel_label_paramdict,
                 )
 
