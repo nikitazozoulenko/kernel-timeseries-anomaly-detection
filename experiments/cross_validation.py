@@ -57,6 +57,7 @@ def get_hyperparam_ranges(kernel_name:str):
     # Specific to each time series kernel
     if "gak" in kernel_name:
         ranges["gak_factor"] = np.exp(np.linspace(-2, 2, 5))
+        ranges["normalize"] = [True]
 
     if "pde" in kernel_name:
         ranges["dyadic_order"] = np.array([2], dtype=np.int64)
@@ -75,19 +76,10 @@ def get_hyperparam_ranges(kernel_name:str):
         ranges["scale"] = np.array([1/4, 1/2, 1, 2, 4])
 
     #rand sigs
-    if "rand sig" in kernel_name:
+    if "rand sig tanh" in kernel_name:
         ranges["n_features"] = np.array([50, 100, 200, 400])
         ranges["seed"] = np.array([0])
-        if "identity" in kernel_name:
-            ranges["activation"] = ["identity"]
-        elif "relu" in kernel_name:
-            ranges["activation"] = ["relu"]
-        elif "tanh" in kernel_name:
-            ranges["activation"] = ["tanh"]
-
-    #normalized only due to blowup
-    if kernel_name in ["gak", "rand sig identity", "rand sig relu", "pde sig linear"]:
-        ranges["normalize"] = [True]
+        ranges["activation"] = ["tanh"]
 
     return ranges
 
@@ -471,14 +463,10 @@ if __name__ == "__main__":
                 "integral rbf",
                 "integral poly",
 
+                "rand sig tanh",
                 "trunc sig linear",
                 "trunc sig rbf",
-                "pde sig linear", #normalized only
                 "pde sig rbf",
-
-                "rand sig identity", #normalized only
-                "rand sig relu", #normalized only
-                "rand sig tanh",
 
                 "gak", #normalized only
 
