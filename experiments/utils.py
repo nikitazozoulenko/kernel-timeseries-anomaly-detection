@@ -22,7 +22,7 @@ def load_dataset(dataset_name:str):
 
     else:
         X_train, y_train = load_classification(dataset_name, split="train")
-        X_test, y_test = load_classification(dataset_name, split="train")
+        X_test, y_test = load_classification(dataset_name, split="test")
 
     return X_train.transpose(0, 2, 1), y_train, X_test.transpose(0, 2, 1), y_test
 
@@ -92,11 +92,10 @@ def highlight_best(scores:np.ndarray[str],
 
 def retrieve_kernel_AUCs(kernelwise_dict:Dict[str, np.ndarray],
                   mahal_or_conf:Literal["conf", "mahal"],
-                  order=["flat linear", "flat rbf", "flat poly", "integral rbf", "integral poly", "trunc sig linear", "trunc sig rbf", "pde sig rbf", "gak", "reservoir"],
+                  order=["flat linear", "flat rbf", "flat poly", "integral rbf", "integral poly", "trunc sig linear", "trunc sig rbf", "rand sig tanh", "pde sig rbf", "gak", "reservoir"],
                   ):
     """Retrieves the AUCs for each kernel in the order given by the list `order`."""
     #reorder the kernels
-    assert set(kernelwise_dict.keys()) == set(order)
     scores = [kernelwise_dict[k] for k in order]
 
     ROC_AUC = []
@@ -163,12 +162,12 @@ def latex_table(arr:np.ndarray, #shape (n_datasets, 2, n_kernels), axis=1 is [co
     code = r"""
     \begin{tabular}{lc||ccc|cc|ccc|c|c}
         \toprule
-        \multirow{2}{*}{Dataset}   &  \multicolumn{11}{c}{""" + title + r"} \\"
+        \multirow{2}{*}{Dataset}   &  \multicolumn{12}{c}{""" + title + r"} \\"
     code += r"""
-        \cline{3-12}
+        \cline{3-13}
                                 & & linear & RBF & poly 
                                 & $I_\text{RBF}$ & $I_\text{poly}$ 
-                                & $S_\text{lin}$ & $S_\text{RBF}$ & $S^\infty_\text{RBF}$ 
+                                & $S_\text{lin}$ & $S_\text{RBF}$ & $S^\infty_\text{RBF}$ & $S^\text{rand}_\text{tanh}$ 
                                 & GAK & VRK\\ 
         \hline
         \hline""" + "\n"

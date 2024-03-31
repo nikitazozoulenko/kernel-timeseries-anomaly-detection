@@ -441,7 +441,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Run this script to run cross validation on ts-learn datasets.")
     parser.add_argument("--dataset_names", nargs="+", type=str, default=[
-        'CharacterTrajectories',       # N_corpus = 
+        'CharacterTrajectories',       # N_corpus = 71
         'Epilepsy',                    # N_corpus = 34
         'EthanolConcentration',        # N_corpus = 65
         'FingerMovements',             # N_corpus = 158
