@@ -45,7 +45,7 @@ class BaseclassAnomalyScore():
 
         #if A=0, add eps I to A to avoid throwing errors
         if torch.allclose(A, torch.zeros_like(A), rtol=1e-14, atol=1e-14):
-            A = A + torch.eye(N, dtype = A.dtype, device=A.device) * 1e-12
+            A = A + torch.eye(N, dtype = A.dtype, device=A.device) * 1e-6
 
         #SVD decomposition is equal to spectral decomposition
         U, S, Ut = torch.linalg.svd( A )

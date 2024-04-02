@@ -92,7 +92,7 @@ def highlight_best(scores:np.ndarray[str],
 
 def retrieve_kernel_AUCs(kernelwise_dict:Dict[str, np.ndarray],
                   mahal_or_conf:Literal["conf", "mahal"],
-                  order=["flat linear", "flat rbf", "flat poly", "integral rbf", "integral poly", "trunc sig linear", "trunc sig rbf", "rand sig tanh", "pde sig rbf", "gak", "reservoir"],
+                  order=["flat linear", "flat rbf", "flat poly", "integral rbf", "integral poly", "gak", "reservoir", "trunc sig linear", "trunc sig rbf", "pde sig rbf", "rand sig tanh"],
                   ):
     """Retrieves the AUCs for each kernel in the order given by the list `order`."""
     #reorder the kernels
@@ -160,15 +160,15 @@ def latex_table(arr:np.ndarray, #shape (n_datasets, 2, n_kernels), axis=1 is [co
     """
     #Add start of table
     code = r"""
-    \begin{tabular}{lc||ccc|cc|ccc|c|c}
+    \begin{tabular}{lc||ccc|cc|cccc|c|c}
         \toprule
         \multirow{2}{*}{Dataset}   &  \multicolumn{12}{c}{""" + title + r"} \\"
     code += r"""
         \cline{3-13}
                                 & & linear & RBF & poly 
                                 & $I_\text{RBF}$ & $I_\text{poly}$ 
-                                & $S_\text{lin}$ & $S_\text{RBF}$ & $S^\infty_\text{RBF}$ & $S^\text{rand}_\text{tanh}$ 
-                                & GAK & VRK\\ 
+                                & GAK & VRK
+                                & $S_\text{lin}$ & $S_\text{RBF}$ & $S^\infty_\text{RBF}$ & $S^\text{rand}_\text{tanh}$ \\ 
         \hline
         \hline""" + "\n"
     
