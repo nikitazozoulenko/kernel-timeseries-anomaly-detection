@@ -292,7 +292,8 @@ def cv_given_dataset(X:Tensor,                  #Training Dataset
                     kernel_names:List[str],
                     k_folds:int,                #k-fold cross validation
                     n_repeats:int,              #repeats of k-fold CV
-                    verbose:bool = False
+                    verbose:bool = False,
+                    omit_alpha:bool = False
                     ):
     """Performs repeated k-fold cross-validation on the given dataset 
     for the anomaly detection models specified by 'kernel_names'. We 
@@ -300,7 +301,7 @@ def cv_given_dataset(X:Tensor,                  #Training Dataset
     the result as a nested dictionary of the form {kernel : label : params}"""
 
     rskf = RepeatedStratifiedKFold(n_splits=k_folds, n_repeats=n_repeats)
-    alphas = np.array([10**-2, 10**-4, 10**-6, 10**-8])
+    alphas = np.array([10**-2, 10**-4, 10**-6, 10**-8]) if not omit_alpha else np.array([10**-2])
 
     #store for conf and mahal separately
     c_kernelwise_param_dicts = {} # kernel : label : param_dict
@@ -338,6 +339,7 @@ def cv_UEA(dataset_names:List[str],
                 k_folds:int = 5,           # k-fold cross validation
                 n_repeats:int = 1,         # repeats of k-fold CV)
                 verbose:bool = False,
+                omit_alpha:bool = False,
                 device="cuda",
                 ):    
     """Cross validation for multivariate UEA datasets.
@@ -348,6 +350,7 @@ def cv_UEA(dataset_names:List[str],
         k_folds (int): k-fold cross validation.
         n_repeats (int): Repeats of k-fold CV.
         verbose (bool): Verbosity.
+        omit_alpha (bool): Omit alpha in hyperparam search for speed.
         device (str): Device for PyTorch computation.
         """
     with torch.no_grad():
@@ -367,7 +370,7 @@ def cv_UEA(dataset_names:List[str],
             c_kernelwise_param_dicts, m_kernelwise_param_dicts = cv_given_dataset(
                                                     X_train, y_train, unique_labels, 
                                                     kernel_names, k_folds, n_repeats,
-                                                    verbose)
+                                                    verbose, omit_alpha)
             t1 = time.time()
             print(f"Time taken for dataset {dataset_name}:", t1-t0, "seconds\n\n\n")
             
@@ -474,6 +477,7 @@ if __name__ == "__main__":
                 ])
     parser.add_argument("--k_folds", type=int, default=5)
     parser.add_argument("--n_repeats", type=int, default=1)
+    parser.add_argument("--omit_alpha", type=int, default=0)
     parser.add_argument("--save_path", type=str, default=f"Data/cv_{int(time.time()*1000)}.pkl")
     args = vars(parser.parse_args())
     print("Args:", args)
@@ -483,6 +487,7 @@ if __name__ == "__main__":
             kernel_names = args["kernel_names"],
             k_folds = args["k_folds"],
             n_repeats = args["n_repeats"],
+            omit_alpha = args["omit_alpha"],
                 )
     
     #save to disk
