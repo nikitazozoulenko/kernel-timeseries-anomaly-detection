@@ -160,7 +160,7 @@ def latex_table(arr:np.ndarray, #shape (n_datasets, 2, n_kernels), axis=1 is [co
     """
     #Add start of table
     code = r"""
-    \begin{tabular}{lc||ccc|cc|cccc|c|c}
+    \begin{tabular}{lc||ccc|cc|c|c|cccc}
         \toprule
         \multirow{2}{*}{Dataset}   &  \multicolumn{12}{c}{""" + title + r"} \\"
     code += r"""

@@ -51,7 +51,7 @@ def get_hyperparam_ranges(kernel_name:str):
     if "rbf" in kernel_name:
         ranges["sigma"] = np.exp(np.linspace(-2, 2, 5))
     if "poly" in kernel_name:
-        ranges["p"] = np.array([2, 3, 4, 5, 6])
+        ranges["p"] = np.array([2, 3, 4])
         ranges["c"] = np.array([1/4, 1/2, 1, 2, 4])
 
     # Specific to each time series kernel
@@ -63,12 +63,12 @@ def get_hyperparam_ranges(kernel_name:str):
         ranges["dyadic_order"] = np.array([2], dtype=np.int64)
 
     if "reservoir" in kernel_name:
-        ranges["tau"] = np.array([1/1, 1/2, 1/3, 1/4, 1/5]) # we also need to clip with 1/tau, since VRK requires the input to be bounded
+        ranges["tau"] = np.array([1/1, 1/2, 1/3, 1/4, 1/5]) # we also need to clip with 1/(tau +-eps), since VRK requires the input to be bounded
         base = 10000
-        ranges["gamma"] = np.emath.logn(base, np.linspace(base**0.5, base**0.999, 20))
+        ranges["gamma"] = np.emath.logn(base, np.linspace(base**0.25, base**0.999, 15))
 
     if "trunc sig" in kernel_name: 
-        MAX_ORDER = 6 #For trunc sig we get all orders up to MAX_ORDER for free
+        MAX_ORDER = 7 #For trunc sig we get all orders up to MAX_ORDER for free
         ranges["order"] = np.array([MAX_ORDER])
     
     # add path scaling sig kernels
@@ -77,7 +77,7 @@ def get_hyperparam_ranges(kernel_name:str):
 
     #rand sigs
     if "rand sig tanh" in kernel_name:
-        ranges["n_features"] = np.array([50, 100, 200, 400])
+        ranges["n_features"] = np.array([25, 50, 100, 200])
         ranges["seed"] = np.array([0])
         ranges["activation"] = ["tanh"]
 
@@ -171,7 +171,7 @@ def eval_1_paramdict_1_fold(X_train,
     # truncated signature case
     else:
         objectives = np.stack([get_objective(vv_grams[:,:,i], uv_grams[:,:,i]) 
-                         for i in range (vv_grams.shape[2])],
+                         for i in range (1, vv_grams.shape[2])],
                          axis=-1)
 
     return objectives # shape (alphas, thresholds, 2) 
@@ -278,7 +278,7 @@ def choose_best_hyperparam(scores_conf_mahal:np.ndarray,
         if "trunc sig" in kernel_name:
             max_truncs = np.max(scores, axis=(0, 1, 2))
             best_trunc_idx = np.argmax(max_truncs)
-            final_param_dict["order"] = 1 + best_trunc_idx
+            final_param_dict["order"] = 2 + best_trunc_idx
             final_param_dict["score_truncations"] = max_truncs
         c_m_param_dicts[i] = final_param_dict
 
