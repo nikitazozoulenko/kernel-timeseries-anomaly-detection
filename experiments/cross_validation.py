@@ -73,7 +73,7 @@ def get_hyperparam_ranges(kernel_name:str):
     
     # add path scaling sig kernels
     if "sig" in kernel_name:
-        ranges["scale"] = np.array([1/4, 1/2, 1, 2, 4])
+        ranges["scale"] = np.array([1/4, 1/2, 1, 2])
 
     #rand sigs
     if "rand sig tanh" in kernel_name:
