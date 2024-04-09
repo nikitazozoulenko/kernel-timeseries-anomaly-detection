@@ -78,7 +78,7 @@ def get_hyperparam_ranges(kernel_name:str):
         ranges["n_features"] = np.array([25, 50, 100, 200])
         ranges["seed"] = np.array([0])
         ranges["activation"] = ["tanh"]
-        ranges["scale"] = np.exp(np.linspace(-6.9, 1.6, 8))
+        ranges["scale"] = np.exp(np.linspace(-6.9, 1.6, 8)) # from 0.001 to 5
 
     return ranges
 
