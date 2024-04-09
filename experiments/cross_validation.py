@@ -45,7 +45,7 @@ def get_hyperparam_ranges(kernel_name:str):
     # Stream transforms for all kernels
     ranges["basepoint"] = ["basepoint"]
     ranges["time"] = ["", "time_enhance"]
-    ranges["normalize"] = np.array([True, False])
+    ranges["normalize"] = np.array([False, True])
 
     # Specific to each state-space kernel
     if "rbf" in kernel_name:
@@ -65,20 +65,20 @@ def get_hyperparam_ranges(kernel_name:str):
 
     if "reservoir" in kernel_name:
         ranges["tau"] = np.array([1/1, 1/2, 1/3, 1/4, 1/5]) # we also need to clip with 1/(tau +-eps), since VRK requires the input to be bounded
-        base = 10000
+        #inverse logspace
+        base = 10000 
         ranges["gamma"] = np.emath.logn(base, np.linspace(base**0.25, base**0.999, 15))
 
     if "trunc sig" in kernel_name: 
         MAX_ORDER = 7 #For trunc sig we get all orders up to MAX_ORDER for free
         ranges["order"] = np.array([MAX_ORDER])
-        ranges["scale"] = np.array([1/16, 1/8, 1/4, 1/2, 1, 2, 4])
+        ranges["scale"] = np.array([1/8, 1/4, 1/2, 1, 2, 4])
     
     if "rand sig tanh" in kernel_name:
         ranges["n_features"] = np.array([25, 50, 100, 200])
         ranges["seed"] = np.array([0])
         ranges["activation"] = ["tanh"]
-        base = np.e
-        ranges["scale"] = np.emath.logn(base, np.linspace(base**5, base**0.001, 8))
+        ranges["scale"] = np.exp(np.linspace(-6.9, 1.6, 8))
 
     return ranges
 
@@ -150,7 +150,7 @@ def eval_1_paramdict_1_fold(X_train,
                     shape (alphas, thresholds, 2), or
                     shape (alphas, thresholds, 2, n_truncs) for truncated sig.
     """
-    SVD_max_rank = 30
+    SVD_max_rank = 50
     corpus, test = get_corpus_and_test(X_train, y_train, X_val, 
                                 class_to_test, param_dict)
     vv_grams, uv_grams = calc_grams(corpus, test, param_dict, 
