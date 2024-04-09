@@ -97,8 +97,8 @@ def calc_grams(corpus:Tensor,
                                activation = param_dict["activation"],
                                seed = param_dict["seed"],
                                normalize=param_dict["normalize"])
-        corpus = corpus * param_dict["scale"] / np.sqrt(d)
-        test = test * param_dict["scale"] / np.sqrt(d)
+        ker._init_given_input(corpus)
+        ker.A /= np.sqrt(param_dict["scale"])
     
     torch.cuda.empty_cache()
     vv_gram = ker(corpus, corpus)

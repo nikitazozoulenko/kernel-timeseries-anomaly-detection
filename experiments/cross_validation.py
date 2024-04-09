@@ -61,6 +61,7 @@ def get_hyperparam_ranges(kernel_name:str):
 
     if "pde" in kernel_name:
         ranges["dyadic_order"] = np.array([2], dtype=np.int64)
+        ranges["scale"] = np.array([1/8, 1/4, 1/2, 1])
 
     if "reservoir" in kernel_name:
         ranges["tau"] = np.array([1/1, 1/2, 1/3, 1/4, 1/5]) # we also need to clip with 1/(tau +-eps), since VRK requires the input to be bounded
@@ -70,16 +71,14 @@ def get_hyperparam_ranges(kernel_name:str):
     if "trunc sig" in kernel_name: 
         MAX_ORDER = 7 #For trunc sig we get all orders up to MAX_ORDER for free
         ranges["order"] = np.array([MAX_ORDER])
+        ranges["scale"] = np.array([1/16, 1/8, 1/4, 1/2, 1, 2, 4])
     
-    # add path scaling sig kernels
-    if "sig" in kernel_name:
-        ranges["scale"] = np.array([1/4, 1/2, 1, 2])
-
-    #rand sigs
     if "rand sig tanh" in kernel_name:
         ranges["n_features"] = np.array([25, 50, 100, 200])
         ranges["seed"] = np.array([0])
         ranges["activation"] = ["tanh"]
+        base = np.e
+        ranges["scale"] = np.emath.logn(base, np.linspace(base**5, base**0.001, 8))
 
     return ranges
 
@@ -301,7 +300,7 @@ def cv_given_dataset(X:Tensor,                  #Training Dataset
     the result as a nested dictionary of the form {kernel : label : params}"""
 
     rskf = RepeatedStratifiedKFold(n_splits=k_folds, n_repeats=n_repeats)
-    alphas = np.array([10**-2, 10**-4, 10**-6, 10**-8]) if not omit_alpha else np.array([10**-2])
+    alphas = np.array([10**-2, 10**-5, 10**-8]) if not omit_alpha else np.array([10**-2])
 
     #store for conf and mahal separately
     c_kernelwise_param_dicts = {} # kernel : label : param_dict
@@ -335,12 +334,12 @@ def cv_given_dataset(X:Tensor,                  #Training Dataset
 
 
 def cv_UEA(dataset_names:List[str], 
-                kernel_names:List[str],
-                k_folds:int = 5,           # k-fold cross validation
-                n_repeats:int = 1,         # repeats of k-fold CV)
-                verbose:bool = False,
-                omit_alpha:bool = False,
-                device="cuda",
+            kernel_names:List[str],
+            k_folds:int = 5,           # k-fold cross validation
+            n_repeats:int = 1,         # repeats of k-fold CV)
+            verbose:bool = False,
+            omit_alpha:bool = False,
+            device="cuda",
                 ):    
     """Cross validation for multivariate UEA datasets.
     
@@ -476,7 +475,7 @@ if __name__ == "__main__":
                 "reservoir",
                 ])
     parser.add_argument("--k_folds", type=int, default=5)
-    parser.add_argument("--n_repeats", type=int, default=1)
+    parser.add_argument("--n_repeats", type=int, default=10)
     parser.add_argument("--omit_alpha", type=int, default=0)
     parser.add_argument("--save_path", type=str, default=f"Data/cv_{int(time.time()*1000)}.pkl")
     args = vars(parser.parse_args())

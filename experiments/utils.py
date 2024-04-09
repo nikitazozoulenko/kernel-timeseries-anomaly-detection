@@ -212,7 +212,8 @@ def print_latex_results(experiments:Dict, #given by validate_tslearn
         dataset_names.append(dataset_name)
     
     #rename datasets
-    new_dataset_names = {'Epilepsy':"EP", 
+    new_dataset_names = {'CharacterTrajectories':"CT",
+                        'Epilepsy':"EP", 
                         'EthanolConcentration':"EC",
                         'FingerMovements':"FM",
                         'HandMovementDirection':"HMD",

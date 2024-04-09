@@ -53,6 +53,7 @@ class BaseclassAnomalyScore():
         M = min(M, SVD_max_rank) if SVD_max_rank is not None else M
         M = max(M, 1) #ensure at least one eigenvalue
         if verbose:
+            print("inner_prod_Gram_matrix", B)
             print("Covariance operator eigenvalues =", S)
             print("Covariance operator numerical rank =", M)
         U, S = U[:, 0:M], S[0:M] #Shapes (N,M) and (M)

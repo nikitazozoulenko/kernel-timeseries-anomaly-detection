@@ -164,7 +164,7 @@ class RandomizedSigKernel(TimeSeriesKernel):
                              device=device,
                              dtype=dtype,
                              generator=gen
-                             ) / np.sqrt(self.n_features)
+                             )
         self.b = torch.randn(self.n_features,
                              d,
                              device=device,
@@ -176,7 +176,8 @@ class RandomizedSigKernel(TimeSeriesKernel):
                                device=device,
                                dtype=dtype,
                                generator=gen)
-
+        self.has_initialized = True
+        
 
     def _gram(
             self, 
@@ -186,7 +187,6 @@ class RandomizedSigKernel(TimeSeriesKernel):
         ):
         if not self.has_initialized:
             self._init_given_input(X)
-            self.has_initialized = True
 
         fun = randomized_sig if self.activation == "identity" else \
               randomized_sig_ReLU if self.activation == "relu" else \

@@ -206,7 +206,7 @@ def T_visibility_transform(X:Tensor):
 
 def normalize_streams(train:Tensor, 
                       test:Tensor,
-                      max_T:int = 70
+                      max_T:int = 50,
                       ):
     """Inputs are 3D arrays of shape (N, T, d) where N is the number of time series, 
     T is the length of each time series, and d is the dimension of each time series.
