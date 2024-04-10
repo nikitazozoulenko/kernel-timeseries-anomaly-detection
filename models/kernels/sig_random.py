@@ -37,10 +37,10 @@ def randomized_sig_tanh(
 
     #iterate y[t+1] = y[t] + ...
     Z = torch.tensordot(tanh(Y_0), A, dims=1) + b[None] # shape (N, M, d)
-    Y = Y_0 + (Z * diff[:, 0, :].unsqueeze(-2)).sum(dim=-1) # shape (N, M)
+    Y = Y_0 + (Z * diff[:, 0:1, :]).sum(dim=-1) # shape (N, M)
     for t in range(1, T-1):
         Z = torch.tensordot(tanh(Y), A, dims=1) + b[None]
-        Y = Y + (Z * diff[:, t, :].unsqueeze(-2)).sum(dim=-1)
+        Y = Y + (Z * diff[:, t:t+1, :]).sum(dim=-1)
     return Y
 
 
