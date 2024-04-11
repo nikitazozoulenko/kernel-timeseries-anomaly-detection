@@ -3,6 +3,7 @@ from typing import List, Optional, Dict, Set, Callable, Any, Literal
 import numpy as np
 from aeon.datasets import load_classification
 from aeon.datasets import load_from_tsfile
+import os
 
 
 
@@ -33,7 +34,8 @@ def load_dataset(dataset_name:str):
 
 
 def join_dicts_from_pickle_paths(paths:List[str]) -> Dict:
-    """Reads a list of pickles and joins them into a single dict.
+    """Reads a list of pickles and joins them into a single dict,
+    if path exists.
 
     Args:
         paths (List[str]): List of paths to pickles.
@@ -42,7 +44,8 @@ def join_dicts_from_pickle_paths(paths:List[str]) -> Dict:
         Dict: Joined dicts.
     """
     dicts = [load_from_pickle(path)
-             for path in paths]
+             for path in paths
+             if os.path.isfile(path)]
     joined_dicts = {}
     for d in dicts:
         joined_dicts.update(d)
