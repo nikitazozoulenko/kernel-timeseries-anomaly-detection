@@ -61,7 +61,7 @@ def get_hyperparam_ranges(kernel_name:str):
 
     if "pde" in kernel_name:
         ranges["dyadic_order"] = np.array([2], dtype=np.int64)
-        ranges["scale"] = np.array([1/8, 1/4, 1/2, 1])
+        ranges["scale"] = np.array([1])
 
     if "reservoir" in kernel_name:
         ranges["tau"] = np.array([1/1, 1/2, 1/3, 1/4, 1/5]) # we also need to clip with 1/(tau +-eps), since VRK requires the input to be bounded
@@ -72,14 +72,12 @@ def get_hyperparam_ranges(kernel_name:str):
     if "trunc sig" in kernel_name: 
         MAX_ORDER = 7 #For trunc sig we get all orders up to MAX_ORDER for free
         ranges["order"] = np.array([MAX_ORDER])
-        ranges["scale"] = np.array([1/8, 1/4, 1/2, 1, 2, 4])
+        ranges["scale"] = np.array([1])
     
     if "rand sig tanh" in kernel_name:
         ranges["n_features"] = np.array([25, 50, 100, 200])
-        ranges["seed"] = np.array([0])
-        ranges["activation"] = ["tanh"]
-        ranges["scale"] = np.exp(np.linspace(-6.9, 1.6, 8)) # from 0.001 to 5
-
+        ranges["seed"] = np.array([0, 1, 2, 3, 4])
+        ranges["scale"] = np.geomspace(0.0001, 1, 8)
     return ranges
 
 

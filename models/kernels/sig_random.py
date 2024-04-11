@@ -49,7 +49,6 @@ class RandomizedSigKernel(TimeSeriesKernel):
     def __init__(
             self,
             n_features = 100,
-            activation:Literal["identity", "relu", "tanh"] = "relu",
             seed:int = 0,
             max_batch:int = 10000,
             normalize:bool = False,
@@ -60,14 +59,12 @@ class RandomizedSigKernel(TimeSeriesKernel):
 
         Args:
             n_features (int): Number of features.
-            activation (str): Activation function.
             seed (int): Random seed.
             max_batch (int, optional): Max batch size for computations.
             normalize (bool, optional): If True, normalizes the kernel.
         """
         super().__init__(max_batch, normalize)
         self.n_features = n_features
-        self.activation = activation
         self.seed = seed
         self.has_initialized = False
 
@@ -122,13 +119,9 @@ class RandomizedSigKernel(TimeSeriesKernel):
         ):
         if not self.has_initialized:
             self._init_given_input(X)
-
-        fun = randomized_sig if self.activation == "identity" else \
-              randomized_sig_ReLU if self.activation == "relu" else \
-              randomized_sig_tanh
         
-        feat_X = fun(X, self.A, self.b, self.Y_0)
-        feat_Y = fun(Y, self.A, self.b, self.Y_0)
+        feat_X = randomized_sig_tanh(X, self.A, self.b, self.Y_0)
+        feat_Y = randomized_sig_tanh(Y, self.A, self.b, self.Y_0)
 
         if diag:
             return (feat_X * feat_Y).mean(dim=-1)
