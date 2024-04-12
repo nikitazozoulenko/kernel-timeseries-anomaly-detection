@@ -259,5 +259,5 @@ def print_nameshape(X):
 
 def print_tensor(X):
     """Prints the name and shape of an array, then the array itself."""
-    print(X.shape, mod_retrieve_name(X)[0], "\n")
-    print(X)
+    print(X.shape, mod_retrieve_name(X)[0])
+    print(X, "\n")
