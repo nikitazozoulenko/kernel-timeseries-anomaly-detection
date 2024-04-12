@@ -21,6 +21,7 @@ class BaseclassAnomalyScore():
                  SVD_threshold:float = 0.0001,
                  SVD_max_rank:Optional[int] = None,
                  verbose:bool = False,
+                 clamp:bool = True,
                 ):
         """Class which computes the conformance score or Mahalanobis distance to a 
         given corpus of elements {x_1, ..., x_N} originating from a Hilbert space.
@@ -33,9 +34,13 @@ class BaseclassAnomalyScore():
             SVD_max_rank (int): Only allow 'SVD_max_rank' number of eigenvalues to 
                                 be non-zero.
             verbose (bool): If true, prints out the SVD rank and the eigenvalues.
-
+            clamp (bool): If true, clamps gram matrix, and removes NaNs.
         """
         N,N = inner_prod_Gram_matrix.shape
+        if clamp:
+            MAX_VAL = 1e+20
+            inner_prod_Gram_matrix = torch.clamp(inner_prod_Gram_matrix, -MAX_VAL, MAX_VAL)
+            inner_prod_Gram_matrix[torch.isnan(inner_prod_Gram_matrix)] = MAX_VAL
 
         #calculate Gram matrix A_{i,j} = <f_i, f_j>. SVD decomposition A= U S U^t
         B = inner_prod_Gram_matrix #<x_i, x_j>
