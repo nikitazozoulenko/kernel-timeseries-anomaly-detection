@@ -56,7 +56,7 @@ def get_hyperparam_ranges(kernel_name:str):
 
     # Specific to each time series kernel
     if "gak" in kernel_name:
-        ranges["gak_factor"] = np.exp(np.linspace(-2, 2, 5))
+        ranges["gak_factor"] = np.exp(np.linspace(-2, 2, 10))
         ranges["normalize"] = [True]
 
     if "pde" in kernel_name:
