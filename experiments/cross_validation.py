@@ -61,7 +61,7 @@ def get_hyperparam_ranges(kernel_name:str):
 
     if "pde" in kernel_name:
         ranges["dyadic_order"] = np.array([2], dtype=np.int64)
-        ranges["scale"] = np.array([1])
+        ranges["scale"] = np.array([1/8, 1/4, 1/2, 1])
 
     if "reservoir" in kernel_name:
         ranges["tau"] = np.array([1/1, 1/2, 1/3, 1/4, 1/5]) # we also need to clip with 1/(tau +-eps), since VRK requires the input to be bounded
@@ -70,14 +70,14 @@ def get_hyperparam_ranges(kernel_name:str):
         ranges["gamma"] = np.emath.logn(base, np.linspace(base**0.25, base**0.999, 15))
 
     if "trunc sig" in kernel_name: 
-        MAX_ORDER = 7 #For trunc sig we get all orders up to MAX_ORDER for free
+        MAX_ORDER = 7 #For trunc sig we get all orders up to MAX_ORDER for free via dynamic programming
         ranges["order"] = np.array([MAX_ORDER])
-        ranges["scale"] = np.array([1])
+        ranges["scale"] = np.array([1/4, 1/2, 1, 2, 4])
     
     if "rand sig tanh" in kernel_name:
         ranges["n_features"] = np.array([25, 50, 100, 200])
         ranges["seed"] = np.array([0, 1, 2, 3, 4])
-        ranges["scale"] = np.geomspace(0.0001, 1, 8)
+        ranges["scale"] = np.geomspace(0.0001, 10, 8)
     return ranges
 
 
@@ -298,7 +298,7 @@ def cv_given_dataset(X:Tensor,                  #Training Dataset
     the result as a nested dictionary of the form {kernel : label : params}"""
 
     rskf = RepeatedStratifiedKFold(n_splits=k_folds, n_repeats=n_repeats)
-    alphas = np.array([10**-2, 10**-5, 10**-8]) if not omit_alpha else np.array([10**-2])
+    alphas = np.array([10**-8, 10**-5, 10**-2, 10**1]) if not omit_alpha else np.array([10**-2])
 
     #store for conf and mahal separately
     c_kernelwise_param_dicts = {} # kernel : label : param_dict
@@ -463,14 +463,14 @@ if __name__ == "__main__":
                 "integral rbf",
                 "integral poly",
 
-                "rand sig tanh",
+                "gak", #normalized only
+                "reservoir",
+
                 "trunc sig linear",
                 "trunc sig rbf",
                 "pde sig rbf",
+                "rand sig tanh",
 
-                "gak", #normalized only
-
-                "reservoir",
                 ])
     parser.add_argument("--k_folds", type=int, default=5)
     parser.add_argument("--n_repeats", type=int, default=10)
