@@ -240,3 +240,24 @@ def print_latex_results(experiments:Dict, #given by validate_tslearn
     print(pr_table)
     print("\n\n\n\n\nROC_AUC LaTeX table:")
     print(auc_table)
+
+
+#####################################################################
+################## Print torch tensors ##############################
+#####################################################################
+import inspect
+
+def mod_retrieve_name(var):
+    callers_local_vars = inspect.currentframe().f_back.f_back.f_locals.items()
+    return [var_name for var_name, var_val in callers_local_vars if var_val is var]
+
+
+def print_nameshape(X):
+    """Prints the name and shape of an array."""
+    print(X.shape, mod_retrieve_name(X)[0], "\n")
+
+
+def print_tensor(X):
+    """Prints the name and shape of an array, then the array itself."""
+    print(X.shape, mod_retrieve_name(X)[0], "\n")
+    print(X)
