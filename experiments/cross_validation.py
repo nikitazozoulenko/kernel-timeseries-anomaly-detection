@@ -61,13 +61,13 @@ def get_hyperparam_ranges(kernel_name:str):
 
     if "pde" in kernel_name:
         ranges["dyadic_order"] = np.array([2], dtype=np.int64)
-        ranges["scale"] = np.array([1/4, 1/2, 1, 2, 4])
+        ranges["scale"] = np.array([1/8, 1/4, 1/2, 1])
 
     if "reservoir" in kernel_name:
         ranges["tau"] = np.array([1/1, 1/2, 1/3, 1/4, 1/5]) # we also need to clip with 1/(tau +-eps), since VRK requires the input to be bounded
         #inverse logspace
         base = 10000 
-        ranges["gamma"] = np.emath.logn(base, np.linspace(base**0.25, base**0.999, 15))
+        ranges["gamma"] = np.emath.logn(base, np.linspace(base**0.25, base**0.999, 10))
 
     if "trunc sig" in kernel_name: 
         MAX_ORDER = 7 #For trunc sig we get all orders up to MAX_ORDER for free via dynamic programming
@@ -318,14 +318,6 @@ def cv_given_dataset(X:Tensor,                  #Training Dataset
             m_labelwise_param_dicts[label] = m_param_dict
         c_kernelwise_param_dicts[kernel_name] = c_labelwise_param_dicts
         m_kernelwise_param_dicts[kernel_name] = m_labelwise_param_dicts
-
-        #add elapsed CV time to each param_dict
-        t1 = time.time()
-        elapsed_time = t1-t0
-        print(f"Time taken for kernel {kernel_name}:", elapsed_time, "seconds")
-        for label in unique_labels:
-            for c_or_m in [c_kernelwise_param_dicts, m_kernelwise_param_dicts]:
-                c_or_m[kernel_name][label]["CV_time"] = elapsed_time
 
     return c_kernelwise_param_dicts, m_kernelwise_param_dicts
 
