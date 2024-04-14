@@ -49,14 +49,14 @@ def get_hyperparam_ranges(kernel_name:str):
 
     # Specific to each state-space kernel
     if "rbf" in kernel_name:
-        ranges["sigma"] = np.exp(np.linspace(-2, 2, 5))
+        ranges["sigma"] = np.exp(np.linspace(-1, 3, 5))
     if "poly" in kernel_name:
         ranges["p"] = np.array([2, 3, 4])
         ranges["c"] = np.array([1/4, 1/2, 1, 2, 4])
 
     # Specific to each time series kernel
     if "gak" in kernel_name:
-        ranges["gak_factor"] = np.exp(np.linspace(-2, 2, 5))
+        ranges["gak_factor"] = np.exp(np.linspace(-1, 3, 5))
         ranges["normalize"] = [True]
 
     if "pde" in kernel_name:
