@@ -45,7 +45,7 @@ def get_hyperparam_ranges(kernel_name:str):
     # Stream transforms for all kernels
     ranges["basepoint"] = ["basepoint"]
     ranges["time"] = ["", "time_enhance"]
-    ranges["normalize"] = np.array([False, True])
+    ranges["normalize"] = np.array([True])
 
     # Specific to each state-space kernel
     if "rbf" in kernel_name:
@@ -56,7 +56,7 @@ def get_hyperparam_ranges(kernel_name:str):
 
     # Specific to each time series kernel
     if "gak" in kernel_name:
-        ranges["gak_factor"] = np.exp(np.linspace(-2, 2, 10))
+        ranges["gak_factor"] = np.exp(np.linspace(-2, 2, 5))
         ranges["normalize"] = [True]
 
     if "pde" in kernel_name:
@@ -69,7 +69,7 @@ def get_hyperparam_ranges(kernel_name:str):
         base = 10000 
         ranges["gamma"] = np.emath.logn(base, np.linspace(base**0.25, base**0.999, 10))
 
-    if "trunc sig" in kernel_name: 
+    if "trunc sig" in kernel_name:
         MAX_ORDER = 7 #For trunc sig we get all orders up to MAX_ORDER for free via dynamic programming
         ranges["order"] = np.array([MAX_ORDER])
         ranges["scale"] = np.array([1/4, 1/2, 1, 2, 4])
@@ -77,7 +77,7 @@ def get_hyperparam_ranges(kernel_name:str):
     if "rand sig tanh" in kernel_name:
         ranges["n_features"] = np.array([25, 50, 100, 200])
         ranges["seed"] = np.array([0, 1, 2, 3, 4])
-        ranges["scale"] = np.geomspace(0.0001, 10, 6)
+        ranges["scale"] = np.geomspace(0.001, 10, 8)
     return ranges
 
 
@@ -168,7 +168,7 @@ def eval_1_paramdict_1_fold(X_train,
     # truncated signature case
     else:
         objectives = np.stack([get_objective(vv_grams[:,:,i], uv_grams[:,:,i]) 
-                         for i in range (1, vv_grams.shape[2])],
+                         for i in range (vv_grams.shape[2])],
                          axis=-1)
 
     return objectives # shape (alphas, thresholds, 2) 
@@ -275,7 +275,7 @@ def choose_best_hyperparam(scores_conf_mahal:np.ndarray,
         if "trunc sig" in kernel_name:
             max_truncs = np.max(scores, axis=(0, 1, 2))
             best_trunc_idx = np.argmax(max_truncs)
-            final_param_dict["order"] = 2 + best_trunc_idx
+            final_param_dict["order"] = 1 + best_trunc_idx
             final_param_dict["score_truncations"] = max_truncs
         c_m_param_dicts[i] = final_param_dict
 
@@ -298,7 +298,7 @@ def cv_given_dataset(X:Tensor,                  #Training Dataset
     the result as a nested dictionary of the form {kernel : label : params}"""
 
     rskf = RepeatedStratifiedKFold(n_splits=k_folds, n_repeats=n_repeats)
-    alphas = np.array([10**-8, 10**-5, 10**-2, 10**1]) if not omit_alpha else np.array([10**-2])
+    alphas = np.array([10**-8, 10**-5, 10**-2]) if not omit_alpha else np.array([10**-2])
 
     #store for conf and mahal separately
     c_kernelwise_param_dicts = {} # kernel : label : param_dict

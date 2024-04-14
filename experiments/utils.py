@@ -4,6 +4,7 @@ import numpy as np
 from aeon.datasets import load_classification
 from aeon.datasets import load_from_tsfile
 import os
+from pydantic.utils import deep_update
 
 
 
@@ -48,7 +49,7 @@ def join_dicts_from_pickle_paths(paths:List[str]) -> Dict:
              if os.path.isfile(path)]
     joined_dicts = {}
     for d in dicts:
-        joined_dicts.update(d)
+        joined_dicts = deep_update(joined_dicts, d)
     return joined_dicts
 
 

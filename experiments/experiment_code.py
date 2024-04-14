@@ -77,7 +77,8 @@ def calc_grams(corpus:Tensor,
     elif kernel_name == "pde sig rbf":
         ker = SigPDEKernel(RBFKernel(np.sqrt(d)*param_dict["sigma"], scale=param_dict["scale"]),
                            dyadic_order=param_dict["dyadic_order"],
-                           normalize=param_dict["normalize"])
+                           normalize=param_dict["normalize"],
+                           max_batch=600)
         
     elif kernel_name == "gak":
         ker = GlobalAlignmentKernel(RBFKernel(sigma_gak(corpus) * param_dict["gak_factor"]),
@@ -97,7 +98,7 @@ def calc_grams(corpus:Tensor,
                                seed = param_dict["seed"],
                                normalize=param_dict["normalize"])
         ker._init_given_input(corpus)
-        ker.A /= np.sqrt(param_dict["scale"])
+        ker.A *= np.sqrt(param_dict["scale"])
     
     torch.cuda.empty_cache()
     vv_gram = ker(corpus, corpus)

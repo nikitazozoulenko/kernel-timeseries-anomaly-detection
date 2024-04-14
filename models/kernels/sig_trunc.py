@@ -153,6 +153,6 @@ class TruncSigKernel(TimeSeriesKernel):
         K = self.static_kernel.time_gram(X, Y, diag)
         nabla = K.diff(dim=-1).diff(dim=-2) # shape (N, T1, T2)
         if self.geo_order >= 2:
-            return trunc_sigker_geoGEQ2(nabla, self.trunc_level, self.geo_order, self.only_last)
+            return trunc_sigker_geoGEQ2(nabla, self.trunc_level, self.geo_order, self.only_last).clone()
         else:
-            return trunc_sigker_geo1(nabla, self.trunc_level, self.only_last)
+            return trunc_sigker_geo1(nabla, self.trunc_level, self.only_last).clone()

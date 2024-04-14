@@ -15,4 +15,5 @@ torch
 torchvision 
 torchaudio
 aeon
+pydantic
 git+https://github.com/crispitagorico/sigkernel.git
