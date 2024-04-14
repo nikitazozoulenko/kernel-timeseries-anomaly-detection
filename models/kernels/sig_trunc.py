@@ -111,7 +111,7 @@ class TruncSigKernel(TimeSeriesKernel):
             trunc_level:int = 5,
             geo_order:int = 1,
             only_last:bool = True,
-            max_batch:int = 10000,
+            max_batch:int = 7000,
             normalize:bool = False,
         ):
         """
