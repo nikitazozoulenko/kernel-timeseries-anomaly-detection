@@ -38,7 +38,7 @@ class BaseclassAnomalyScore():
         """
         N,N = inner_prod_Gram_matrix.shape
         if clamp:
-            MAX_VAL = 1e+20
+            MAX_VAL = 1e+10
             inner_prod_Gram_matrix = torch.clamp(inner_prod_Gram_matrix, -MAX_VAL, MAX_VAL)
             inner_prod_Gram_matrix[torch.isnan(inner_prod_Gram_matrix)] = MAX_VAL
 
