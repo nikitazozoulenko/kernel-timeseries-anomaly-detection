@@ -253,7 +253,7 @@ def mod_retrieve_name(var):
     return [var_name for var_name, var_val in callers_local_vars if var_val is var]
 
 
-def print_nameshape(X):
+def print_shape(X):
     """Prints the name and shape of an array."""
     print(X.shape, mod_retrieve_name(X)[0], "\n")
 
