@@ -64,7 +64,7 @@ def get_hyperparam_ranges(kernel_name:str):
         ranges["scale"] = np.array([1/8, 1/4, 1/2, 1])
 
     if "reservoir" in kernel_name:
-        ranges["tau"] = np.array([1/1, 1/2, 1/3, 1/4, 1/5]) # we also need to clip with 1/(tau +-eps), since VRK requires the input to be bounded
+        ranges["tau"] = np.array([1/1, 1/2, 1/4, 1/8]) # we also need to clip with 1/(tau +-eps), since VRK requires the input to be bounded
         #inverse logspace
         base = 1000
         ranges["gamma"] = np.emath.logn(base, np.linspace(base**0.25, base**0.999, 10))
