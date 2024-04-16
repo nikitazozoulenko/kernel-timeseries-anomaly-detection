@@ -42,6 +42,8 @@ class ReservoirKernel(TimeSeriesKernel):
             diag: bool,
         ):
         # shape (N, N2, T) or (N, T) if diag=True
+        X = torch.flip(X, dims=[1])
+        Y = torch.flip(Y, dims=[1])
         state_space_gram = self.lin_ker(X, Y, diag) 
         prod = self.gamma**2 / (1 - self.tau**2 * state_space_gram)
         

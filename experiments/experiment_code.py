@@ -77,7 +77,8 @@ def calc_grams(corpus:Tensor,
     elif kernel_name == "pde sig rbf":
         ker = SigPDEKernel(RBFKernel(np.sqrt(d)*param_dict["sigma"], scale=param_dict["scale"]),
                            dyadic_order=param_dict["dyadic_order"],
-                           normalize=param_dict["normalize"])
+                           normalize=param_dict["normalize"],
+                           max_batch=500)
         
     elif kernel_name == "gak":
         ker = GlobalAlignmentKernel(RBFKernel(sigma_gak(corpus) * param_dict["gak_factor"]),

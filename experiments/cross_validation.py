@@ -49,14 +49,14 @@ def get_hyperparam_ranges(kernel_name:str):
 
     # Specific to each state-space kernel
     if "rbf" in kernel_name:
-        ranges["sigma"] = np.exp(np.linspace(-1, 3, 5))
+        ranges["sigma"] = np.exp(np.linspace(-2, 2, 5))
     if "poly" in kernel_name:
         ranges["p"] = np.array([2, 3, 4])
         ranges["c"] = np.array([1/4, 1/2, 1, 2, 4])
 
     # Specific to each time series kernel
     if "gak" in kernel_name:
-        ranges["gak_factor"] = np.exp(np.linspace(-1, 3, 5))
+        ranges["gak_factor"] = np.exp(np.linspace(-2, 2, 5))
         ranges["normalize"] = [True]
 
     if "pde" in kernel_name:
@@ -66,7 +66,7 @@ def get_hyperparam_ranges(kernel_name:str):
     if "reservoir" in kernel_name:
         ranges["tau"] = np.array([1/1, 1/2, 1/3, 1/4, 1/5]) # we also need to clip with 1/(tau +-eps), since VRK requires the input to be bounded
         #inverse logspace
-        base = 10000 
+        base = 1000
         ranges["gamma"] = np.emath.logn(base, np.linspace(base**0.25, base**0.999, 10))
 
     if "trunc sig" in kernel_name:
@@ -75,9 +75,9 @@ def get_hyperparam_ranges(kernel_name:str):
         ranges["scale"] = np.array([1/4, 1/2, 1, 2, 4])
     
     if "rand sig tanh" in kernel_name:
-        ranges["n_features"] = np.array([25, 50, 100, 200])
+        ranges["n_features"] = np.array([10, 25, 50, 100, 200])
         ranges["seed"] = np.array([0, 1, 2, 3, 4])
-        ranges["scale"] = np.geomspace(0.001, 10, 8)
+        ranges["scale"] = np.geomspace(0.00001, 1, 8)
     return ranges
 
 
@@ -433,7 +433,6 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Run this script to run cross validation on ts-learn datasets.")
     parser.add_argument("--dataset_names", nargs="+", type=str, default=[
-        'CharacterTrajectories',       # N_corpus = 71
         'Epilepsy',                    # N_corpus = 34
         'EthanolConcentration',        # N_corpus = 65
         'FingerMovements',             # N_corpus = 158
@@ -455,7 +454,7 @@ if __name__ == "__main__":
                 "integral rbf",
                 "integral poly",
 
-                "gak", #normalized only
+                "gak",
                 "reservoir",
 
                 "trunc sig linear",
