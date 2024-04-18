@@ -80,7 +80,7 @@ def highlight_best(scores:np.ndarray[str],
                    ):
     """" Given a ndim=1 array of scores as strings,
     replace all best occurences with a boldface string."""
-    best = max(scores) if max_or_min == "max" else min(scores)
+    best = max(scores) if max_or_min == "max" else min(np.array(scores).astype(float)).astype(str)
     best = np.argwhere(np.array(scores) == best).flatten()
     copy = [s for s in scores]
     for i in best:
@@ -177,10 +177,12 @@ def latex_table(arr:np.ndarray, #shape (n_datasets, 2, n_kernels), axis=1 is [co
 
     #Add averages
     averages_auc = np.mean(arr, axis=0)
-    argsort = np.argsort(1/(arr+1), axis=2)
-    averages_rank = np.mean(np.argsort(np.argsort(1/(arr+1), axis=2), axis=2), axis=0) +1
+    n_datasets, _, n_kernels = arr.shape
+    flat_arr = arr.reshape(n_datasets, 2*n_kernels)
+    averages_rank = np.mean(np.argsort(np.argsort(1/(flat_arr+1), axis=1), axis=1), axis=0) +1
+    averages_rank = averages_rank.reshape(2, n_kernels)
     code += add_datasets_to_latex_table([averages_auc], ["Avg. AUC"], round_digits, leading_zero, "max")
-    code += add_datasets_to_latex_table([averages_rank], ["Avg. Rank"], round_digits, leading_zero, "min")
+    code += add_datasets_to_latex_table([averages_rank], ["Avg. Rank"], round_digits-1, leading_zero, "min")
 
     #Add the bottom
     code += "\t\t" + r"""\bottomrule
@@ -211,20 +213,20 @@ def print_latex_results(experiments:Dict, #given by validate_tslearn
         dataset_names.append(dataset_name)
     
     #rename datasets
-    new_dataset_names = {'CharacterTrajectories':"CT",
-                        'Epilepsy':"EP", 
-                        'EthanolConcentration':"EC",
-                        'FingerMovements':"FM",
-                        'HandMovementDirection':"HMD",
-                        'Heartbeat':"HB",
-                        'MotorImagery':"MI",
-                        'NATOPS':"NATO",
-                        'PEMS-SF':"PEMS",
-                        'RacketSports':"RS", 
-                        'SelfRegulationSCP1':"SRS1", 
-                        'SelfRegulationSCP2':"SRS2", 
-                        'PhonemeSpectra':"PS", 
-                        'LSST':"LSST",
+    new_dataset_names = {
+            'Epilepsy':"EP", 
+            'EthanolConcentration':"EC",
+            'FingerMovements':"FM",
+            'HandMovementDirection':"HMD",
+            'Heartbeat':"HB",
+            'MotorImagery':"MI",
+            'NATOPS':"NATO",
+            'PEMS-SF':"PEMS",
+            'RacketSports':"RS", 
+            'SelfRegulationSCP1':"SRS1", 
+            'SelfRegulationSCP2':"SRS2", 
+            'PhonemeSpectra':"PS", 
+            'LSST':"LSST",
                         }
     dataset_names = [new_dataset_names[name] if name in new_dataset_names.keys() else name
                      for name in dataset_names]

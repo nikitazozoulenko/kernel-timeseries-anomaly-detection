@@ -16,4 +16,6 @@ torchvision
 torchaudio
 aeon
 pydantic
+statsmodels
+seaborn
 git+https://github.com/crispitagorico/sigkernel.git
