@@ -9,7 +9,7 @@ In addition to implementing the (kernelized) Mahalanobis distance to the mean, a
 * The Global Alignment Kernel [[1]](https://arxiv.org/abs/cs/0610033)
 * The Volterra Reservoir Kernel [[2]](https://arxiv.org/abs/2212.14641)
 * The Truncated Signature Kernel [[3]](https://jmlr.org/papers/v20/16-314.html)
-* The PDE Signature Kernel [[4]](https://arxiv.org/abs/2006.14794)
+* The PDE Signature Kernel [[4]](https://arxiv.org/abs/2006.14794) (implemented as a wrapper to the [sigker](https://github.com/crispitagorico/sigkernel) library)
 * Randomized Signatures [[5]](https://arxiv.org/abs/2201.02441)
 
 ## Example Usage
