@@ -3,7 +3,7 @@
 This Github repo contains a PyTorch implementation of Algorithm 1-3 from "TODO", URL, on anomaly detection in infinite dimensional Hilbert spaces.
 
 ## Time series kernels
-In addition to implementing the (kernelized) Mahalanobis distance to the mean, and the (kernelized) nearest neighbour Mahalanobis distance (also referred to as the Conformance score), we include efficient GPU-supported implementations of the following time series kernels.
+In addition to implementing the (kernelized) Mahalanobis distance to the mean, and the (kernelized) nearest neighbour Mahalanobis distance (also known as the Conformance score), we include efficient GPU-supported implementations of the following time series kernels.
 
 * Integral-class Kernels (linear time warping kernels)
 * The Global Alignment Kernel [[1]](https://arxiv.org/abs/cs/0610033)
