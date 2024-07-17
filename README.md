@@ -1,6 +1,6 @@
 # Welcome!
 
-This Github repo contains a PyTorch implementation of Algorithm 1-3 from "TODO", URL, on anomaly detection in infinite dimensional Hilbert spaces.
+This Github repo contains a PyTorch implementation of Algorithm 1-3 from the paper ["Variance Norms for Kernelized Anomaly Detection"](https://arxiv.org/abs/2407.11873), on anomaly detection in infinite dimensional Banach and Hilbert spaces.
 
 ## Time series kernels
 In addition to implementing the (kernelized) Mahalanobis distance to the mean, and the (kernelized) nearest neighbour Mahalanobis distance (also known as the Conformance score), we include efficient GPU-supported implementations of the following time series kernels.
